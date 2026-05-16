@@ -4,175 +4,183 @@ import numpy as np
 import plotly.graph_objects as go
 from datetime import datetime
 
-# --- SYSTEM SETTINGS ---
-st.set_page_config(page_title="SolarX Industrial Designer", layout="wide", page_icon="🏗️")
+# --- SYSTEM CONFIGURATION ---
+st.set_page_config(page_title="SolarX Global Sovereign", layout="wide", page_icon="🌐")
 
-# Custom Professional Theme
+# --- PREMIUM LIGHT THEME STYLING ---
 st.markdown("""
     <style>
-    .main { background-color: #0d1117; color: #c9d1d9; }
-    .stMetric { background-color: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 15px; }
-    .section-header { color: #58a6ff; font-size: 24px; font-weight: bold; border-bottom: 2px solid #30363d; padding-bottom: 10px; margin-top: 20px; }
-    .spec-box { background-color: #0d1117; border: 1px solid #30363d; padding: 20px; border-radius: 12px; line-height: 1.6; }
+    .stApp { background-color: #ffffff; color: #1e1e1e; }
+    [data-testid="stMetricValue"] { color: #0d6efd !important; font-size: 28px; }
+    .stMetric { 
+        background-color: #ffffff; 
+        border: 1px solid #edf2f7; 
+        border-radius: 12px; 
+        padding: 20px;
+        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05);
+    }
+    .section-header { 
+        color: #1a202c; 
+        font-size: 30px; 
+        font-weight: 800; 
+        border-left: 5px solid #ffc107; 
+        padding-left: 15px; 
+        margin-bottom: 25px; 
+    }
+    .spec-box { 
+        background-color: #f7fafc; 
+        border: 1px solid #e2e8f0; 
+        padding: 25px; 
+        border-radius: 16px; 
+        color: #2d3748;
+        line-height: 1.8;
+    }
+    section[data-testid="stSidebar"] {
+        background-color: #f8fafc;
+        border-right: 1px solid #e2e8f0;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# --- THE MEGA DATABASE (65+ COUNTRIES) ---
+# --- EXPANDED 100+ COUNTRIES DATABASE ---
+# [Optimal Tilt, Currency, Avg Sale Rate, Avg Purchase Rate]
 db = {
-    "Pakistan": [30.0, "PKR", 42.0, 65.0, "Asia"], "India": [22.5, "INR", 5.0, 9.0, "Asia"],
-    "USA (Texas)": [30.2, "USD", 0.08, 0.14, "Americas"], "USA (California)": [34.0, "USD", 0.12, 0.28, "Americas"],
-    "United Kingdom": [50.1, "GBP", 0.15, 0.45, "Europe"], "Germany": [48.0, "EUR", 0.08, 0.40, "Europe"],
-    "Australia": [35.0, "AUD", 0.07, 0.32, "Oceania"], "UAE": [24.5, "AED", 0.15, 0.35, "Middle East"],
-    "Saudi Arabia": [25.0, "SAR", 0.10, 0.20, "Middle East"], "Canada": [45.0, "CAD", 0.05, 0.15, "Americas"],
-    "China": [35.0, "CNY", 0.40, 0.60, "Asia"], "Japan": [35.0, "JPY", 16.0, 30.0, "Asia"],
-    "France": [40.0, "EUR", 0.10, 0.25, "Europe"], "Italy": [38.0, "EUR", 0.12, 0.30, "Europe"],
-    "Brazil": [20.0, "BRL", 0.45, 0.95, "Americas"], "Turkey": [38.0, "TRY", 2.5, 4.5, "Europe"],
-    "South Africa": [28.0, "ZAR", 1.2, 2.8, "Africa"], "Egypt": [27.0, "EGP", 0.8, 1.6, "Africa"],
-    "Qatar": [25.0, "QAR", 0.1, 0.25, "Middle East"], "Malaysia": [5.0, "MYR", 0.3, 0.5, "Asia"],
-    "Singapore": [1.0, "SGD", 0.2, 0.3, "Asia"], "Thailand": [15.0, "THB", 2.2, 4.5, "Asia"],
-    "New Zealand": [-40.0, "NZD", 0.08, 0.3, "Oceania"], "Spain": [37.0, "EUR", 0.15, 0.30, "Europe"],
-    "Mexico": [23.0, "MXN", 1.5, 3.0, "Americas"], "Russia": [55.0, "RUB", 2.0, 5.0, "Asia"],
-    "Norway": [60.0, "NOK", 0.5, 1.5, "Europe"], "Tanzania": [-6.0, "TZS", 100, 350, "Africa"],
-    "Kenya": [1.0, "KES", 12, 25, "Africa"], "Bangladesh": [23.5, "BDT", 5.0, 10.0, "Asia"]
+    "Afghanistan": [34, "AFN", 5.0, 10.0], "Albania": [41, "ALL", 8.0, 15.0], "Algeria": [28, "DZD", 4.0, 12.0],
+    "Angola": [-12, "AOA", 15, 30], "Argentina": [-34, "ARS", 25.0, 60.0], "Armenia": [40, "AMD", 20, 45],
+    "Australia": [-35, "AUD", 0.08, 0.32], "Austria": [47, "EUR", 0.12, 0.38], "Azerbaijan": [40, "AZN", 0.06, 0.12],
+    "Bahrain": [26, "BHD", 0.02, 0.05], "Bangladesh": [23, "BDT", 6.0, 12.0], "Belarus": [53, "BYN", 0.15, 0.30],
+    "Belgium": [51, "EUR", 0.08, 0.45], "Bolivia": [-16, "BOB", 0.5, 1.2], "Brazil": [-15, "BRL", 0.50, 1.05],
+    "Bulgaria": [42, "BGN", 0.15, 0.35], "Cambodia": [12, "KHR", 400, 800], "Canada": [45, "CAD", 0.06, 0.18],
+    "Chile": [-33, "CLP", 60.0, 150.0], "China": [35, "CNY", 0.42, 0.65], "Colombia": [4, "COP", 350, 700],
+    "Croatia": [45, "EUR", 0.10, 0.25], "Cyprus": [35, "EUR", 0.18, 0.40], "Czech Republic": [50, "CZK", 2.5, 6.5],
+    "Denmark": [55, "DKK", 0.65, 2.8], "Egypt": [27, "EGP", 1.0, 2.0], "Estonia": [58, "EUR", 0.08, 0.30],
+    "Ethiopia": [9, "ETB", 0.6, 1.4], "Finland": [60, "EUR", 0.09, 0.35], "France": [42, "EUR", 0.12, 0.28],
+    "Georgia": [42, "GEL", 0.10, 0.25], "Germany": [48, "EUR", 0.10, 0.44], "Ghana": [5, "GHS", 0.7, 1.5],
+    "Greece": [38, "EUR", 0.15, 0.35], "Hong Kong": [22, "HKD", 3.0, 5.0], "Hungary": [47, "HUF", 30, 80],
+    "Iceland": [64, "ISK", 6.0, 18.0], "India": [22, "INR", 5.5, 10.5], "Indonesia": [-6, "IDR", 1500, 3200],
+    "Iran": [32, "IRR", 5000, 15000], "Iraq": [33, "IQD", 70, 150], "Ireland": [53, "EUR", 0.20, 0.50],
+    "Israel": [31, "ILS", 0.45, 0.65], "Italy": [38, "EUR", 0.15, 0.40], "Jamaica": [18, "JMD", 15, 35],
+    "Japan": [36, "JPY", 18.0, 35.0], "Jordan": [31, "JOD", 0.08, 0.18], "Kazakhstan": [48, "KZT", 15, 30],
+    "Kenya": [1, "KES", 12, 28], "Kuwait": [29, "KWD", 0.02, 0.08], "Latvia": [56, "EUR", 0.10, 0.35],
+    "Lebanon": [33, "LBP", 2000, 5000], "Libya": [25, "LYD", 0.05, 0.15], "Lithuania": [55, "EUR", 0.09, 0.38],
+    "Luxembourg": [49, "EUR", 0.15, 0.35], "Malaysia": [3, "MYR", 0.35, 0.60], "Maldives": [4, "MVR", 2.0, 4.5],
+    "Mexico": [23, "MXN", 1.8, 3.8], "Mongolia": [47, "MNT", 150, 300], "Morocco": [32, "MAD", 1.0, 2.0],
+    "Myanmar": [21, "MMK", 50, 150], "Nepal": [28, "NPR", 8.0, 18.0], "Netherlands": [52, "EUR", 0.12, 0.45],
+    "New Zealand": [-41, "NZD", 0.10, 0.38], "Nigeria": [10, "NGN", 70, 150], "Norway": [60, "NOK", 0.7, 2.0],
+    "Oman": [23, "OMR", 0.02, 0.08], "Pakistan": [30, "PKR", 42.0, 72.0], "Palestine": [31, "ILS", 0.5, 0.8],
+    "Panama": [9, "PAB", 0.12, 0.22], "Peru": [-12, "PEN", 0.30, 0.65], "Philippines": [14, "PHP", 6.0, 13.0],
+    "Poland": [52, "PLN", 0.40, 0.90], "Portugal": [37, "EUR", 0.12, 0.30], "Qatar": [25, "QAR", 0.12, 0.30],
+    "Romania": [45, "RON", 0.5, 1.0], "Russia": [55, "RUB", 3.0, 6.0], "Saudi Arabia": [25, "SAR", 0.12, 0.25],
+    "Serbia": [44, "RSD", 10, 25], "Singapore": [1, "SGD", 0.25, 0.38], "Slovakia": [48, "EUR", 0.12, 0.30],
+    "Slovenia": [46, "EUR", 0.10, 0.28], "South Africa": [-28, "ZAR", 1.5, 3.2], "South Korea": [36, "KRW", 180, 320],
+    "Spain": [37, "EUR", 0.18, 0.35], "Sri Lanka": [7, "LKR", 25, 55], "Sweden": [59, "SEK", 0.8, 2.2],
+    "Switzerland": [47, "CHF", 0.18, 0.40], "Taiwan": [24, "TWD", 4.5, 7.0], "Tanzania": [-6, "TZS", 150, 400],
+    "Thailand": [15, "THB", 2.5, 5.2], "Tunisia": [34, "TND", 0.2, 0.5], "Turkey": [38, "TRY", 3.0, 5.5],
+    "UAE": [24, "AED", 0.18, 0.40], "Uganda": [0, "UGX", 300, 700], "Ukraine": [49, "UAH", 5.0, 8.5],
+    "UK": [51, "GBP", 0.18, 0.52], "USA": [35, "USD", 0.12, 0.24], "Uruguay": [-33, "UYU", 4.0, 9.0],
+    "Uzbekistan": [41, "UZS", 500, 1000], "Venezuela": [10, "VED", 5, 15], "Vietnam": [16, "VND", 2000, 3500],
+    "Zambia": [-15, "ZMW", 0.5, 1.2], "Zimbabwe": [-18, "ZWL", 10, 25]
 }
 
-# --- SIDEBAR: DEEP SPECS INPUTS ---
+# --- SIDEBAR CONTROL PANEL ---
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/2950/2950130.png", width=100)
-    st.title("🎛️ Project Architect")
-    
-    selected_country = st.selectbox("🌍 Deployment Location", sorted(db.keys()))
+    st.title("⚙️ Engine Parameters")
+    selected_country = st.selectbox("Market Selection (100+ Nations)", sorted(db.keys()))
     c_data = db[selected_country]
     
-    with st.expander("🛠️ PV Panel Engineering"):
-        p_type = st.selectbox("Cell Technology", ["Mono-Crystalline (PERC)", "Poly-Crystalline", "Thin Film (CdTe)"])
-        p_watt = st.number_input("Panel Rating (Pmax)", value=580)
-        p_num = st.number_input("String Count (Panels)", value=14)
-        deg_rate = st.slider("Annual Degradation (%)", 0.2, 1.0, 0.5)
-        temp_coeff = st.slider("Temp Coefficient (Pmax %/°C)", -0.5, -0.2, -0.35)
+    with st.expander("🛠️ Technical Configuration"):
+        p_watt = st.number_input("Panel Power (W)", value=580)
+        p_num = st.number_input("Panel Count", value=18)
+        p_type = st.selectbox("Cell Type", ["N-Type TOPCon", "Mono-PERC", "Bifacial Pro"])
     
-    with st.expander("⚡ Inverter & Grid"):
-        inv_topology = st.selectbox("Inverter Topology", ["Central Inverter", "String Inverter", "Micro-Inverters"])
-        inv_eff = st.slider("Peak Efficiency (%)", 90.0, 99.0, 97.5)
-        net_metering = st.checkbox("Enable Net-Metering", value=True)
-    
-    with st.expander("🔋 Storage (BESS)"):
-        has_batt = st.checkbox("Integrate Battery")
-        if has_batt:
-            batt_tech = st.selectbox("Battery Chemistry", ["Lithium Iron Phosphate (LFP)", "Lead Acid (Deep Cycle)", "Nickel Manganese Cobalt (NMC)"])
-            batt_cap = st.number_input("Capacity (kWh)", value=15.0)
-            dod = st.slider("Depth of Discharge (DoD %)", 50, 100, 80)
-    
-    with st.expander("🏠 Load & Economics"):
-        daily_load_kwh = st.number_input("Total 24h Load (kWh)", value=30.0)
-        sun_peak_h = st.slider("Available Sun Hours", 1.0, 12.0, 6.5)
+    with st.expander("💰 Tariff & Rate Controls"):
+        buy_rate = st.number_input(f"Grid Buy Price ({c_data[1]})", value=float(c_data[3]))
+        sell_rate = st.number_input(f"Grid Sale Price ({c_data[1]})", value=float(c_data[2]))
+        
+    with st.expander("🔋 Advanced Hardware"):
+        inv_eff = st.slider("Inverter Efficiency (%)", 90.0, 99.0, 97.5)
+        has_batt = st.checkbox("Storage System")
+        batt_cap = st.number_input("Battery Size (kWh)", value=15.0) if has_batt else 0
+        
+    with st.expander("⚡ Daily Dynamics"):
+        daily_load = st.number_input("Energy Demand (kWh)", value=35.0)
+        sun_h = st.slider("Peak Sun Hours", 1.0, 12.0, 7.0)
 
-# --- CORE ENGINEERING ENGINE ---
-sys_pmax = (p_watt * p_num) / 1000  # Total kWp
-loss_factor = (inv_eff/100) * 0.94 # Accounting for wiring & dust losses (6% average)
-total_daily_gen = sys_pmax * sun_peak_h * loss_factor
+# --- ENGINE CALCULATION ---
+sys_size = (p_watt * p_num) / 1000
+net_yield_daily = sys_size * sun_h * (inv_eff / 100) * 0.94 # System Loss Factor
 
-# 24-Hour Simulation Logic
 hours = np.arange(24)
-gen_curve = [total_daily_gen * np.sin(np.pi * (h-6)/12) if 6 <= h <= 18 else 0 for h in hours]
-gen_curve = [max(0, g) for g in gen_curve]
+gen_h = [net_yield_daily * np.sin(np.pi * (h-6)/12) if 6 <= h <= 18 else 0 for h in hours]
+gen_h = [max(0, g) for g in gen_h]
+load_h = [(daily_load/24) * (2.0 if (h > 18 or h < 7) else 0.8) for h in hours]
 
-# Load curve: Peaks in morning and evening
-load_curve = [(daily_load_kwh/24) * (1.9 if (h >= 18 or h < 7) else 0.6) for h in hours]
+export_u = [max(0, g - l) for g, l in zip(gen_h, load_h)]
+import_u = [max(0, l - g) for g, l in zip(gen_h, load_h)]
+self_cons = [min(g, l) for g, l in zip(gen_h, load_h)]
 
-# Energy Management System (EMS) Logic
-export, import_grid, batt_status = [], [], []
-current_soc = batt_cap * (dod/100) if has_batt else 0
+# --- DASHBOARD UI ---
+st.markdown(f"<div class='section-header'>SolarX Project Architecture: {selected_country}</div>", unsafe_allow_html=True)
 
-for g, l in zip(gen_curve, load_curve):
-    if g > l:
-        surplus = g - l
-        if has_batt and current_soc < batt_cap:
-            charge = min(surplus, batt_cap - current_soc)
-            current_soc += charge
-            export.append(surplus - charge)
-        else:
-            export.append(surplus)
-        import_grid.append(0)
-    else:
-        deficit = l - g
-        if has_batt and current_soc > (batt_cap * (1 - dod/100)):
-            discharge = min(deficit, current_soc - (batt_cap * (1 - dod/100)))
-            current_soc -= discharge
-            import_grid.append(deficit - discharge)
-        else:
-            import_grid.append(deficit)
-    batt_status.append(current_soc)
-
-# --- MAIN INTERFACE ---
-st.markdown(f"<div class='section-header'>🏗️ System Specification: {selected_country} Project</div>", unsafe_allow_html=True)
-
-# Top Metrics Row
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("Peak DC Capacity", f"{sys_pmax:.2f} kWp")
-c2.metric("Daily AC Yield", f"{sum(gen_curve):.1f} kWh")
-c3.metric("Annual Offset", f"{sum(gen_curve)*365/1000:.1f} MWh")
-c4.metric("Market Currency", c_data[1])
+m1, m2, m3, m4 = st.columns(4)
+m1.metric("DC Peak Power", f"{sys_size:.2f} kWp")
+m2.metric("Daily Production", f"{sum(gen_h):.1f} kWh")
+m3.metric("Annual Carbon Offset", f"{sum(gen_h)*365*0.7/1000:.1f} Tons")
+m4.metric("Market Currency", c_data[1])
 
 st.divider()
 
-# --- THE MEGA DETAIL TABS ---
-tab1, tab2, tab3, tab4 = st.tabs(["📉 Power Flow Analytics", "🛠️ Technical Data Sheet", "💰 Financial ROI", "🌍 Climate Impact"])
+# --- CONTENT TABS ---
+tab1, tab2, tab3, tab4 = st.tabs(["📉 Live Analytics", "📜 Specifications", "💸 Economic ROI", "🌿 Ecology"])
 
 with tab1:
-    st.write("### Real-Time Energy Simulation (24h Window)")
+    st.subheader("24-Hour Predictive Power Flow")
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=hours, y=gen_curve, name="PV Generation", fill='tozeroy', line=dict(color='#FFD700', width=4)))
-    fig.add_trace(go.Scatter(x=hours, y=load_curve, name="Building Demand", line=dict(color='#00BFFF', width=3, dash='dot')))
-    fig.add_trace(go.Scatter(x=hours, y=export, name="Grid Export", line=dict(color='#32CD32')))
-    fig.add_trace(go.Scatter(x=hours, y=import_grid, name="Grid Import", line=dict(color='#FF4500')))
-    if has_batt:
-        fig.add_trace(go.Scatter(x=hours, y=batt_status, name="Battery SoC", line=dict(color='#9370DB', width=2)))
-    
-    fig.update_layout(template="plotly_dark", height=550, hovermode="x unified", plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
+    fig.add_trace(go.Scatter(x=hours, y=gen_h, name="Solar Output", fill='tozeroy', line=dict(color='#ffc107', width=4)))
+    fig.add_trace(go.Scatter(x=hours, y=load_h, name="Demand Curve", line=dict(color='#0d6efd', width=3, dash='dot')))
+    fig.add_trace(go.Scatter(x=hours, y=export_u, name="Export to Grid", line=dict(color='#198754')))
+    fig.add_trace(go.Scatter(x=hours, y=import_u, name="Grid Import", line=dict(color='#dc3545')))
+    fig.update_layout(template="plotly_white", height=500, hovermode="x unified")
     st.plotly_chart(fig, use_container_width=True)
 
 with tab2:
-    st.write("### Detailed Hardware Specification Sheet")
+    st.subheader("Technical Design Parameters")
     st.markdown(f"""
     <div class='spec-box'>
-    <b>1. Photovoltaic Modules (PV):</b><br>
-    - Technology: {p_type} | Rating: {p_watt}W per module<br>
-    - Quantity: {p_num} Modules | Area: ~{p_num*2.4:.1f} m²<br>
-    - Optimal Tilt: {c_data[0]}° | Degradation: {deg_rate}% per annum<br><br>
+    <b>I. Photovoltaic Array:</b><br>
+    - Technology: {p_type} Modules<br>
+    - Capacity: {p_num} Panels @ {p_watt}W each<br>
+    - Optimal Installation Tilt: {abs(c_data[0])}° Facing {'North' if c_data[0] < 0 else 'South'}<br><br>
     
-    <b>2. Inverter System:</b><br>
-    - Topology: {inv_topology} | AC Rating: {sys_pmax * 0.9:.2f} kW<br>
-    - Peak Efficiency: {inv_eff}% | Communication: RS485/WiFi/LAN<br><br>
+    <b>II. Energy Tariffs:</b><br>
+    - Utility Buy Rate: {buy_rate} {c_data[1]}/Unit<br>
+    - Feed-in (Sale) Rate: {sell_rate} {c_data[1]}/Unit<br><br>
     
-    <b>3. Battery Energy Storage (BESS):</b><br>
-    - Status: {'Active' if has_batt else 'Not Included'}<br>
-    - Technology: {batt_tech if has_batt else 'N/A'}<br>
-    - Capacity: {batt_cap if has_batt else '0'} kWh | Useable Capacity: {batt_cap*(dod/100) if has_batt else '0'} kWh
+    <b>III. System Architecture:</b><br>
+    - Inverter Efficiency: {inv_eff}%<br>
+    - Storage: {'Hybrid Enabled (' + str(batt_cap) + ' kWh)' if has_batt else 'Grid-Tied Standard'}
     </div>
     """, unsafe_allow_html=True)
 
 with tab3:
-    st.write("### Economic & Financial Projections")
-    daily_revenue = (sum(export) * c_data[2])
-    daily_saved = (sum(gen_curve) - sum(export)) * c_data[3]
-    total_daily_benefit = daily_revenue + daily_saved
+    st.subheader("Financial Performance Evaluation")
+    rev_export = sum(export_u) * sell_rate
+    sav_usage = sum(self_cons) * buy_rate
+    daily_benefit = rev_export + sav_usage
     
     f1, f2, f3 = st.columns(3)
-    f1.metric("Monthly Fiscal Benefit", f"{total_daily_benefit*30:,.0f} {c_data[1]}")
-    f2.metric("Annual System Revenue", f"{total_daily_benefit*365:,.0f} {c_data[1]}")
-    f3.metric("LCOE Estimate", f"{(total_daily_benefit/sum(gen_curve)):.2f} /kWh")
+    f1.metric("Est. Monthly Benefit", f"{daily_benefit*30:,.0f} {c_data[1]}")
+    f2.metric("Est. Annual Revenue", f"{daily_benefit*365:,.0f} {c_data[1]}")
+    f3.metric("Net Monthly Bill", f"{(sum(import_u)*30*buy_rate - rev_export*30):,.0f} {c_data[1]}")
     
-    st.write("#### 12-Month Performance Scaling")
-    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-    seasonal_data = [total_daily_benefit * 30 * (1.4 if m in [5,6,7] else 0.7) for m in range(12)]
-    st.bar_chart(pd.DataFrame(seasonal_data, index=months), color="#32CD32")
+    st.info("The system automatically prioritizes self-consumption to maximize savings based on current tariffs.")
 
 with tab4:
-    st.write("### Environmental & Carbon Metrics")
-    st.success(f"Aapka system saalana **{sum(gen_curve)*365*0.65/1000:.2f} Metric Tons** Carbon Dioxide (CO2) ko hawa mein janay se rokega.")
-    st.info(f"Ye taqreeban **{int(sum(gen_curve)*365/150)}** darakht (trees) lagane ke barabar hai.")
+    st.subheader("Global Sustainability Footprint")
+    co2_total = sum(gen_h) * 365 * 0.72 / 1000
+    st.success(f"Annual Carbon Displacement: **{co2_total:.2f} Metric Tons** of CO2.")
+    st.info(f"Ecological Equivalent: **{int(co2_total * 15)} mature trees** planted per year.")
 
 # --- FOOTER ---
 st.markdown("---")
-st.caption(f"Enterprise Solar Design Engine v3.5 | Region: {c_data[4]} | Local Market Data: Active")
+st.caption(f"SolarX Sovereign Edition v6.0 | Database Scale: 100+ Nations | High-Performance Engine Active")
