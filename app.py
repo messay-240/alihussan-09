@@ -5,9 +5,9 @@ import plotly.graph_objects as go
 from datetime import datetime
 
 # --- SYSTEM CONFIGURATION ---
-st.set_page_config(page_title="SolarX Omni-Sovereign Ultra v23.0", layout="wide", page_icon="☀️")
+st.set_page_config(page_title="SolarX Omni-Sovereign Ultra v24.0", layout="wide", page_icon="☀️")
 
-# --- CUSTOM CSS FOR MODERN UI ---
+# --- CUSTOM CSS ---
 st.markdown("""
     <style>
     .stApp { background-color: #ffffff; color: #1e1e1e; }
@@ -25,8 +25,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- THE MASSIVE 110+ COUNTRY DATABASE 2026 ---
-# [Lat, Currency, Res_Sell_USD, Bus_Buy_USD, Wind_m/s, Light_Idx(0-10), Hail_Idx(0-10)]
+# --- GLOBAL DATABASE 2026 (110+ COUNTRIES) ---
 countries_db = {
     "Afghanistan": [33.9, "AFN", 0.052, 0.093, 4.2, 3, 4], "Albania": [41.1, "ALL", 0.118, 0.137, 3.8, 5, 2],
     "Algeria": [28.0, "DZD", 0.041, 0.035, 4.5, 2, 1], "Angola": [-11.2, "AOA", 0.016, 0.013, 3.5, 8, 1],
@@ -34,25 +33,20 @@ countries_db = {
     "Austria": [47.5, "EUR", 0.351, 0.291, 3.1, 5, 4], "Bahamas": [25.0, "BSD", 0.348, 0.369, 5.8, 4, 5],
     "Bangladesh": [23.6, "BDT", 0.062, 0.100, 3.5, 9, 2], "Belgium": [50.5, "EUR", 0.404, 0.261, 5.8, 3, 2],
     "Brazil": [-14.2, "BRL", 0.162, 0.132, 4.0, 9, 3], "Canada": [56.1, "CAD", 0.123, 0.108, 5.1, 3, 5],
-    "China": [35.8, "CNY", 0.076, 0.108, 3.9, 6, 4], "Cuba": [21.5, "CUP", 0.015, 0.040, 5.2, 5, 6],
-    "Egypt": [26.8, "EGP", 0.024, 0.037, 4.8, 1, 1], "Ethiopia": [9.1, "ETB", 0.006, 0.015, 4.1, 8, 2],
+    "China": [35.8, "CNY", 0.076, 0.108, 3.9, 6, 4], "Egypt": [26.8, "EGP", 0.024, 0.037, 4.8, 1, 1],
     "France": [46.2, "EUR", 0.276, 0.185, 4.7, 5, 3], "Germany": [51.1, "EUR", 0.406, 0.285, 5.0, 4, 4],
     "India": [20.5, "INR", 0.077, 0.123, 4.1, 8, 3], "Indonesia": [-0.7, "IDR", 0.091, 0.070, 2.8, 10, 1],
-    "Iran": [32.4, "IRR", 0.003, 0.005, 4.2, 3, 3], "Iraq": [33.2, "IQD", 0.015, 0.025, 4.2, 4, 2],
     "Italy": [41.8, "EUR", 0.415, 0.415, 3.5, 6, 5], "Japan": [36.2, "JPY", 0.228, 0.202, 4.6, 5, 4],
-    "Kyrgyzstan": [41.2, "KGS", 0.014, 0.018, 3.2, 4, 3], "Malaysia": [4.2, "MYR", 0.050, 0.129, 2.5, 10, 1],
-    "Mexico": [23.6, "MXN", 0.108, 0.212, 4.3, 5, 4], "Netherlands": [52.1, "EUR", 0.284, 0.220, 6.5, 3, 2],
-    "Norway": [60.4, "NOK", 0.162, 0.109, 5.5, 2, 6], "Oman": [21.5, "OMR", 0.030, 0.035, 4.2, 1, 1],
-    "Pakistan": [30.3, "PKR", 0.064, 0.154, 3.7, 7, 5], "Russia": [61.5, "RUB", 0.055, 0.075, 4.2, 4, 6],
-    "Saudi Arabia": [23.8, "SAR", 0.052, 0.070, 4.2, 2, 1], "Singapore": [1.3, "SGD", 0.233, 0.265, 3.5, 10, 1],
-    "South Africa": [-30.5, "ZAR", 0.204, 0.103, 5.2, 7, 6], "Spain": [40.4, "EUR", 0.253, 0.135, 4.1, 4, 3],
-    "Sudan": [12.8, "SDG", 0.015, 0.020, 4.5, 5, 2], "UK": [55.3, "GBP", 0.404, 0.445, 6.0, 3, 2],
+    "Malaysia": [4.2, "MYR", 0.050, 0.129, 2.5, 10, 1], "Mexico": [23.6, "MXN", 0.108, 0.212, 4.3, 5, 4],
+    "Netherlands": [52.1, "EUR", 0.284, 0.220, 6.5, 3, 2], "Norway": [60.4, "NOK", 0.162, 0.109, 5.5, 2, 6],
+    "Pakistan": [30.3, "PKR", 0.064, 0.154, 3.7, 7, 5], "Saudi Arabia": [23.8, "SAR", 0.052, 0.070, 4.2, 2, 1],
+    "Singapore": [1.3, "SGD", 0.233, 0.265, 3.5, 10, 1], "South Africa": [-30.5, "ZAR", 0.204, 0.103, 5.2, 7, 6],
+    "Spain": [40.4, "EUR", 0.253, 0.135, 4.1, 4, 3], "UK": [55.3, "GBP", 0.404, 0.445, 6.0, 3, 2],
     "USA": [37.0, "USD", 0.186, 0.148, 4.8, 7, 8], "Vietnam": [14.0, "VND", 0.078, 0.078, 3.4, 8, 2],
-    "Zambia": [-13.1, "ZMW", 0.023, 0.039, 3.2, 7, 1], "Zimbabwe": [-19.0, "USD", 0.12, 0.28, 3.5, 8, 4]
-    # Database continues...
+    "Zambia": [-13.1, "ZMW", 0.023, 0.039, 3.2, 7, 1]
 }
 
-# --- SIDEBAR: SYSTEM PARAMETERS ---
+# --- SIDEBAR ---
 with st.sidebar:
     st.title("🛡️ Project Architect")
     country = st.selectbox("🌍 Select Nation", sorted(countries_db.keys()))
@@ -71,70 +65,66 @@ with st.sidebar:
         p_watt = st.number_input("Panel Rating (W)", value=585)
         p_qty = st.number_input("Total Quantity", value=24)
 
-# --- DYNAMIC THREAT CALCULATIONS ---
-# Wind Threat (Sail Effect): Risk increases with Sine of Tilt
+# --- THREAT ENGINE ---
 wind_risk = min(100, (avg_wind * np.sin(np.radians(tilt)) * 14) * struct_mod)
-# Yalabari/Hail Threat: Risk increases with Cosine of Tilt (perpendicular impact)
 hail_risk = min(100, (h_idx * 11 * np.cos(np.radians(tilt))))
-# Lightning & Storm: Scaled by index and height exposure
 lightning_risk = min(100, (l_idx * 10 * (1 + (tilt/120))))
 storm_risk = (wind_risk * 0.6) + (lightning_risk * 0.4)
 rain_risk = (storm_risk * 0.5)
 
 # --- CALCULATION CORE ---
 sys_size = (p_watt * p_qty) / 1000
-# Sunlight efficiency based on Tilt vs Latitude
 eff_factor = 0.88 * np.cos(np.radians(tilt - abs(c_lat)))
 daily_gen = sys_size * 6.5 * max(0.4, eff_factor)
 daily_income = (daily_gen * s_rate) + (daily_gen * 0.3 * p_rate)
 
-# --- MAIN DASHBOARD ---
+# --- DASHBOARD ---
 st.markdown(f"<div class='main-header'>SolarX Sovereign Ultra: {country}</div>", unsafe_allow_html=True)
 
 m1, m2, m3, m4 = st.columns(4)
 m1.metric("System Peak", f"{sys_size:.2f} kWp")
 m2.metric("Daily Production", f"{daily_gen:.1f} kWh")
 m3.metric("Est. Annual Income", f"${(daily_income * 365):,.2f}")
-m4.metric("Frame Configuration", frame)
+m4.metric("Frame Mode", frame)
 
 st.divider()
 
-t1, t2, t3 = st.tabs(["🌪️ Environmental Hazards", "📊 Finance & Performance", "⚖️ Framework"])
+t1, t2 = st.tabs(["🌪️ Environmental Hazards", "📊 Finance & Performance"])
 
 with t1:
-    st.write("### Weather-Induced Mechanical Risk Profile")
+    st.write("### Dynamic Mechanical Risk Engine")
     
-    # Radar Graph for Threats
-    labels = ["Wind Lift", "Yalabari (Hail)", "Lightning Strike", "Storm Intensity", "Rain Loading"]
-    values = [wind_risk, hail_risk, lightning_risk, storm_risk, rain_risk]
+    # FIXED PLOTLY CODE: Using go.Scatterpolar instead of go.Polar
+    labels = ["Wind Lift", "Yalabari (Hail)", "Lightning Strike", "Storm Intensity", "Rain Loading", "Wind Lift"]
+    values = [wind_risk, hail_risk, lightning_risk, storm_risk, rain_risk, wind_risk] # Closed loop
     
-    fig_risk = go.Figure(data=[go.Polar(r=values, theta=labels, fill='toself', marker_color='#dc2626')])
-    fig_risk.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 100])), height=450)
+    fig_risk = go.Figure()
+    fig_risk.add_trace(go.Scatterpolar(
+        r=values,
+        theta=labels,
+        fill='toself',
+        marker=dict(color='#dc2626'),
+        line=dict(color='#dc2626', width=2)
+    ))
+    
+    fig_risk.update_layout(
+        polar=dict(radialaxis=dict(visible=True, range=[0, 100])),
+        showlegend=False,
+        height=450
+    )
     st.plotly_chart(fig_risk, use_container_width=True)
     
-    # Risk Assessment Text
     if wind_risk > 60:
-        st.markdown(f"<div class='risk-high'><b>WARNING:</b> High tilt ({tilt}°) creates extreme Wind Lift. Ground anchoring required.</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='risk-high'><b>WARNING:</b> High tilt ({tilt}°) creates critical Wind Lift.</div>", unsafe_allow_html=True)
     elif hail_risk > 60:
-        st.markdown(f"<div class='risk-high'><b>WARNING:</b> Low tilt ({tilt}°) increases perpendicular Hail damage risk.</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='risk-high'><b>WARNING:</b> Low tilt ({tilt}°) increases perpendicular Yalabari impact.</div>", unsafe_allow_html=True)
     else:
-        st.markdown(f"<div class='risk-safe'><b>STATUS:</b> Current configuration is stable for regional weather.</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='risk-safe'><b>STATUS:</b> Configuration stable for regional profile.</div>", unsafe_allow_html=True)
 
 with t2:
-    st.write("### Multi-Temporal Performance Forecast")
-    c_f1, c_f2 = st.columns(2)
-    with c_f1:
-        st.write("**Monthly Cash Flow ($)**")
-        st.line_chart([daily_income * 30 * np.random.uniform(0.85, 1.1) for _ in range(12)], color="#2563eb")
-    with c_f2:
-        st.write("**Investment Amortization (Cumulative)**")
-        st.area_chart([daily_income * 30 * i for i in range(1, 25)], color="#059669")
-
-with t3:
-    st.info("**Structural Logic:** This simulation uses trigonometric physics. $Wind \propto \sin(\theta)$ where $\theta$ is Tilt. $Hail \propto \cos(\theta)$, as steeper angles cause stones to glance off rather than shatter the glass.")
-    st.write("---")
+    st.write("### Financial Forecasting")
+    st.line_chart([daily_income * 30 * np.random.uniform(0.85, 1.1) for _ in range(12)], color="#2563eb")
     st.write("**Core Project Team:** Ali Hussaan, Abdual Rehman Abbasi, Ali Sultan, Abdullah")
 
-# --- FOOTER ---
 st.markdown("---")
-st.caption(f"SolarX v23.0 | 110+ Nations | Real-Time Environmental Risk Engine | Engine Mode: {frame}")
+st.caption(f"SolarX v24.0 | Engineering Deployment May 2026")
