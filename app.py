@@ -4,7 +4,7 @@ import numpy as np
 import plotly.graph_objects as go
 from datetime import datetime
 
-st.set_page_config(page_title="SolarX Enterprise v22 MEGA FINAL", layout="wide", page_icon="⚡")
+st.set_page_config(page_title="Solar Power Estemaiter", layout="wide", page_icon="⚡")
 
 # --- THEME ---
 st.markdown("""
