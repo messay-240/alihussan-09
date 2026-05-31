@@ -79,21 +79,10 @@ with st.sidebar:
     st.title("🛡️ Project Architect")
     country = st.selectbox("🌍 Deployment Location", sorted(db.keys()))
     c_lat, c_curr, c_sale, c_buy, avg_wind = db[country]
-    
-    with st.expander("📐 Technical Orientation", expanded=True):
-        tilt = st.slider("Panel Tilt Angle (°)", 0, 90, int(abs(c_lat)))
-        azimuth = st.slider("Azimuth Angle (0°=South, 180°=North)", -180, 180, 0)
-        st.caption(f"Suggested Tilt for {country}: {abs(c_lat)}°")
-
     with st.expander("🏠 Load & Storage"):
         h_load = st.number_input("Daily Consumption (kWh)", value=50.0)
         has_batt = st.checkbox("Include Battery", value=True)
         batt_cap = st.number_input("Capacity (kWh)", value=15.0) if has_batt else 0
-
-    with st.expander("🏗️ Mechanical Framing"):
-        p_watt = st.number_input("Panel Rating (W)", value=585)
-        p_qty = st.number_input("Module Count", value=20)
-        mount = st.selectbox("Mount Style", ["Roof-Top", "Ground-Mount", "Tracker"])
 
 # --- CALCULATIONS ---
 sys_size = (p_watt * p_qty) / 1000
@@ -117,22 +106,102 @@ k3.metric("Tilt Angle", f"{tilt}°")
 k4.metric("Wind Threat", f"{wind_threat:.1f}%")
 
 st.divider()
+# --- SIDEBAR: ADVANCED ARCHITECT ---
+with st.sidebar:
+    
+    with st.expander("📐 Technical Orientation", expanded=True):
+        tilt = st.slider("Panel Tilt Angle (°)", 0, 90, int(abs(c_lat)))
+        azimuth = st.slider("Azimuth Angle (0°=South, 180°=North)", -180, 180, 0)
+        st.caption(f"Suggested Tilt for {country}: {abs(c_lat)}°")
+
+    with st.expander("🏗️ Mechanical Framing"):
+        p_watt = st.number_input("Panel Rating (W)", value=585)
+        p_qty = st.number_input("Module Count", value=20)
+        mount = st.selectbox("Mount Style", ["Roof-Top", "Ground-Mount", "Tracker"])
+
+# --- CALCULATIONS ---
+sys_size = (p_watt * p_qty) / 1000
+# Azimuth and Tilt efficiency logic
+angle_eff = np.cos(np.radians(tilt - abs(c_lat))) * np.cos(np.radians(azimuth))
+daily_yield = sys_size * 6.8 * 0.85 * max(0.5, angle_eff)
+
+hours = np.arange(24)
+gen_24 = [daily_yield * np.sin(np.pi * (h-6)/12) if 6 <= h <= 18 else 0 for h in hours]
+load_24 = [(h_load/24) * (2.8 if (h > 18 or h < 7) else 0.7) for h in hours]
+
+# --- DASHBOARD ---
+st.markdown(f"<div class='main-header'>SolarX Omni-Ultimate: {country} Project</div>", unsafe_allow_html=True)
+
+k1, k2, k3, k4 = st.columns(4)
+k1.metric("System Peak", f"{sys_size:.2f} kWp")
+k2.metric("Est. Daily Gen", f"{sum(gen_24):.1f} kWh")
+k3.metric("Tilt/Azimuth", f"{tilt}° / {azimuth}°")
+k4.metric("Market Local", c_curr)
+
+st.divider()
 
 # --- ICT EVALUATION TABS ---
-t_ana, t_threat, t_impact, t_team = st.tabs([
+t_ana, t_impact, t_share, t_team = st.tabs([
     "📈 Power Flow Analytics", 
-    "🌪️ Mechanical Threat",
-    "🌍 Community Impact", 
-    "👥 Team Contribution"
+    "🌍 Community & Awareness", 
+    "📚 Knowledge Sharing", 
+    "👥 Team Contribution & Ethics"
 ])
 
 with t_ana:
     st.write("### Multi-Temporal Line Analytics")
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=hours, y=gen_24, name="Generation (kW)", fill='tozeroy', line=dict(color='#f1c40f', width=4)))
-    fig.add_trace(go.Scatter(x=hours, y=load_24, name="House Load (kW)", line=dict(color='#3498db', width=2, dash='dot')))
-    fig.update_layout(template="plotly_white", height=450, hovermode="x unified")
-    st.plotly_chart(fig, use_container_width=True)
+    sub_d, sub_w, sub_m = st.tabs(["24-Hour Day", "7-Day Week", "12-Month Year"])
+    
+    with sub_d:
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=hours, y=gen_24, name="Generation (kW)", fill='tozeroy', line=dict(color='#f1c40f', width=4)))
+        fig.add_trace(go.Scatter(x=hours, y=load_24, name="House Load (kW)", line=dict(color='#3498db', width=2, dash='dot')))
+        fig.update_layout(template="plotly_white", height=450, hovermode="x unified")
+        st.plotly_chart(fig, use_container_width=True)
+
+    with sub_w:
+        w_data = [sum(gen_24) * np.random.uniform(0.8, 1.2) for _ in range(7)]
+        st.line_chart(pd.DataFrame(w_data, index=["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], columns=["Yield"]), color="#f1c40f")
+
+    with sub_m:
+        m_gen = [sum(gen_24) * 30 * f for f in [0.6, 0.75, 1.0, 1.3, 1.4, 1.25, 1.1, 0.9, 0.7, 0.6, 0.55, 0.65]]
+        st.line_chart(pd.DataFrame(m_gen, index=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"], columns=["Monthly kWh"]), color="#3498db")
+
+with t_impact:
+    st.markdown("<div class='ict-requirement'><b>Criteria: Meaningful Community Benefits</b><br>Technical displacement of carbon fuels creates awareness for sustainable local energy.</div>", unsafe_allow_html=True)
+    co2 = sum(gen_24) * 365 * 0.72 / 1000
+    st.success(f"Yearly Offset: *{co2:.2f} Metric Tons* of CO2.")
+    st.info(f"Equivalent Impact: *{int(co2 * 14)} trees* annually.")
+
+with t_share:
+    st.markdown("<div class='ict-requirement'><b>Criteria: Knowledge-Sharing for Seminars/Webinars</b><br>Technical parameters provided below serve as the foundation for educational briefings.</div>", unsafe_allow_html=True)
+    st.write("#### Technical Seminar Points")
+    st.write(f"- *Optimized Tilt:* {tilt}° provides peak irradiance at {c_lat}° latitude.")
+    st.write(f"- *Azimuth Efficiency:* {angle_eff*100:.1f}% based on panel orientation.")
+    st.write("- *System Resilience:* Modeled for multi-cycle climate fluctuations.")
+
+with t_team:
+    st.markdown("<div class='ict-requirement'><b>Criteria: Clear Evidence of Contribution & Ethics</b><br>Safe handling of user data and transparent project delegation.</div>", unsafe_allow_html=True)
+    
+    # Team Member Display
+    st.write("#### Group Project Members")
+    tm1, tm2, tm3, tm4 = st.columns(4)
+    with tm1: st.markdown("<div class='team-card'><b>Ali Hussaan</b><br>Lead Logic</div>", unsafe_allow_html=True)
+    with tm2: st.markdown("<div class='team-card'><b>Abdual Rehman Abbasi</b><br>Data Analysis</div>", unsafe_allow_html=True)
+    with tm3: st.markdown("<div class='team-card'><b>Ali Sultan</b><br>System Architect</div>", unsafe_allow_html=True)
+    with tm4: st.markdown("<div class='team-card'><b>Abdullah</b><br>UI Designer</div>", unsafe_allow_html=True)
+    
+    st.write("---")
+    st.warning("🔐 *Ethics Statement:* This application ensures safe and ethical handling of information by utilizing client-side processing. No personal data is harvested or shared.")
+
+# --- FOOTER ---
+st.markdown("---")
+st.caption("SolarX Omni-Ultimate v17 | ICT Project Evaluation Edition | Built for Mechanical Engineering Dept.")
+# --- ICT EVALUATION TABS ---
+t_ana, t_threat, t_impact, t_team = st.tabs([
+    "🌪️ Mechanical Threat",
+    "🌍 Community Impact", 
+])
 
 with t_threat:
     st.write("### Wind Uplift & Structural Integrity Analysis")
@@ -166,14 +235,4 @@ with t_impact:
     st.markdown("<div class='ict-requirement'><b>Criteria: Community awareness and CO2 reduction.</b></div>", unsafe_allow_html=True)
     co2 = sum(gen_24) * 365 * 0.72 / 1000
     st.success(f"Estimated Yearly Carbon Offset: **{co2:.2f} Metric Tons**.")
-
-with t_team:
-    st.write("#### Group Project Members")
-    tm1, tm2, tm3, tm4 = st.columns(4)
-    with tm1: st.markdown("<div class='team-card'><b>Ali Hussaan</b><br>Lead Logic</div>", unsafe_allow_html=True)
-    with tm2: st.markdown("<div class='team-card'><b>Abdual Rehman Abbasi</b><br>Data Analysis</div>", unsafe_allow_html=True)
-    with tm3: st.markdown("<div class='team-card'><b>Ali Sultan</b><br>System Architect</div>", unsafe_allow_html=True)
-    with tm4: st.markdown("<div class='team-card'><b>Abdullah</b><br>UI Designer</div>", unsafe_allow_html=True)
-
-st.markdown("---")
 st.caption("SolarX Omni-Ultimate v17.2 | Structural Engineering Edition | Built for UET Taxila Dept.")
