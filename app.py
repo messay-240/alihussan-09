@@ -84,13 +84,6 @@ with st.sidebar:
         has_batt = st.checkbox("Include Battery", value=True)
         batt_cap = st.number_input("Capacity (kWh)", value=15.0) if has_batt else 0
 
-# LIVE Wind Threat Logic based on Tilt Angle
-wind_threat = min(100, (avg_wind * np.sin(np.radians(tilt)) * 18))
-
-hours = np.arange(24)
-gen_24 = [daily_yield * np.sin(np.pi * (h-6)/12) if 6 <= h <= 18 else 0 for h in hours]
-load_24 = [(h_load/24) * (2.8 if (h > 18 or h < 7) else 0.7) for h in hours]
-
 # --- DASHBOARD ---
 st.markdown(f"<div class='main-header'>SolarX Omni-Ultimate: {country} Project</div>", unsafe_allow_html=True)
 
