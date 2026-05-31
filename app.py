@@ -84,14 +84,6 @@ with st.sidebar:
         has_batt = st.checkbox("Include Battery", value=True)
         batt_cap = st.number_input("Capacity (kWh)", value=15.0) if has_batt else 0
 
-# --- DASHBOARD ---
-st.markdown(f"<div class='main-header'>SolarX Omni-Ultimate: {country} Project</div>", unsafe_allow_html=True)
-
-k1, k2, k3, k4 = st.columns(4)
-k1.metric("System Peak", f"{sys_size:.2f} kWp")
-k2.metric("Est. Daily Gen", f"{sum(gen_24):.1f} kWh")
-k3.metric("Tilt Angle", f"{tilt}°")
-k4.metric("Wind Threat", f"{wind_threat:.1f}%")
 
 st.divider()
 # --- SIDEBAR: ADVANCED ARCHITECT ---
