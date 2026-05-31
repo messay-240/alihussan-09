@@ -206,7 +206,7 @@ yearly_gen = [sum(gen_24)*365 * (1-p_degrade/100)**y for y in years]
 yearly_profit = [y * ((1-sum(export_24)/sum(gen_24))*buy_rate + (sum(export_24)/sum(gen_24))*sell_rate) * (1-tax_val/100) for y in yearly_gen]
 
 # --- HEADER ---
-st.markdown(f"<div class='main-header'>⚡ SolarX v22 MEGA FINAL: {country}</div>", unsafe_allow_html=True)
+st.markdown(f"<div class='main-header'>⚡ Solar Power Estemaitor: {country}</div>", unsafe_allow_html=True)
 
 # --- KPI 9 METRICS ---
 k1, k2, k3, k4, k5, k6, k7, k8, k9 = st.columns(9)
