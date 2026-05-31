@@ -84,11 +84,6 @@ with st.sidebar:
         has_batt = st.checkbox("Include Battery", value=True)
         batt_cap = st.number_input("Capacity (kWh)", value=15.0) if has_batt else 0
 
-# --- CALCULATIONS ---
-sys_size = (p_watt * p_qty) / 1000
-angle_eff = np.cos(np.radians(tilt - abs(c_lat))) * np.cos(np.radians(azimuth))
-daily_yield = sys_size * 6.8 * 0.85 * max(0.5, angle_eff)
-
 # LIVE Wind Threat Logic based on Tilt Angle
 wind_threat = min(100, (avg_wind * np.sin(np.radians(tilt)) * 18))
 
