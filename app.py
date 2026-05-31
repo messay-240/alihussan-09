@@ -180,7 +180,7 @@ soiling_loss = 1 - soiling/100
 daily_yield = sys_size * sun_h * ((100-sys_loss)/100) * track_bonus * angle_eff * (p_eff/21.5) * temp_loss * soiling_loss * (inv_eff/100) * inv_bonus
 
 hours = np.arange(24)
-gen_24 =[gen_24 * np.sin(np.pi * (h-6)/12) if 6 <= h <= 18 else 0 for h in hours]
+gen_24 = [daily_yield/12 * np.sin(np.pi * (h-6)/12) if 6 <= h <= 18 else 0 for h in hours]
 gen_24 = [max(0, g) for g in gen_24]
 load_24 = [(h_load/24) * (2.8 if (h > 18 or h < 7) else 0.7) for h in hours]
 
