@@ -119,7 +119,7 @@ inverter_db = {
 
 # --- SIDEBAR ---
 with st.sidebar:
-    st.title("⚡ SolarX Architect v22")
+    st.title("⚡ Solar Power Estemaiter ")
     country = st.selectbox("🌍 Country - 120+ Options", sorted(db.keys()))
     c_lat, c_curr, c_sale, c_buy, esg_rating, labor_risk, sourcing, avg_ghi, elec_access, grid_v, grid_f = db[country]
 
