@@ -9,7 +9,7 @@ st.set_page_config(page_title="Solar Power Estemaiter", layout="wide", page_icon
 # --- THEME ---
 st.markdown("""
     <style>
-.stApp { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: white; }
+.stApp { background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); color: #0f172a; }
 [data-testid="stMetricValue"] { color: #fbbf24!important; font-size: 32px; font-weight: 900; }
 .stMetric { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border: 2px solid rgba(255,255,255,0.2); border-radius: 20px; padding: 24px; }
 .main-header { color: white; font-size: 48px; font-weight: 900; text-shadow: 3px 3px 6px rgba(0,0,0,0.3); margin-bottom: 40px; }
