@@ -311,7 +311,6 @@ elif wind_zone == "Moderate":
     k10.metric("Wind Risk", "MODERATE", f"{wind_kmh} km/h")
 else:
     k10.metric("Wind Risk", "LOW", f"{wind_kmh} km/h", delta_color="normal")
-
 st.divider()
 
 # --- 14 TABS - New "Structure" tab added ---
