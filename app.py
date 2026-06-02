@@ -322,15 +322,34 @@ tabs = st.tabs([
 
 with tabs[0]:
     fig = go.Figure()
-   fig.add_trace(go.Scatter(x=hours, y=gen_24, name="Solar Gen", fill='tozeroy', 
-    line=dict(color='#667eea', width=4), fillcolor='rgba(102,126,234,0.3)'))
-fig.add_trace(go.Scatter(x=hours, y=load_24, name="Load", 
-    line=dict(color='#f5576c', width=3)))
-if has_batt: fig.add_trace(go.Scatter(x=hours, y=soc, name="Battery", 
-    line=dict(color='#4ade80', width=3)))
-fig.update_layout(height=500, plot_bgcolor='rgba(255,255,255,0.8)', 
-    paper_bgcolor='rgba(255,255,255,0)', font_color='#1a1a2e')
-
+    fig.add_trace(go.Scatter(
+        x=hours,
+        y=gen_24,
+        name="Solar Gen",
+        fill='tozeroy',
+        line=dict(color='#667eea', width=4),
+        fillcolor='rgba(102,126,234,0.3)'
+    ))
+    fig.add_trace(go.Scatter(
+        x=hours,
+        y=load_24,
+        name="Load",
+        line=dict(color='#f5576c', width=3)
+    ))
+    if has_batt:
+        fig.add_trace(go.Scatter(
+            x=hours,
+            y=soc,
+            name="Battery",
+            line=dict(color='#4ade80', width=3)
+        ))
+    fig.update_layout(
+        height=500,
+        plot_bgcolor='rgba(255,255,255,0.8)',
+        paper_bgcolor='rgba(255,255,255,0)',
+        font_color='#1a1a2e'
+    )
+    st.plotly_chart(fig, use_container_width=True)
 with tabs[1]:
     c1, c2, c3 = st.columns(3)
     with c1:
