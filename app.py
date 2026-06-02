@@ -513,5 +513,5 @@ with tabs[13]:
     st.dataframe(df, height=400)
 
 st.markdown("---")
-st.caption(f"SolarX Pro v23 | 120+ Countries | Wind Threat + Structure + Material Spec")
+st.caption(f"Solar Power Estemaiter | 120+ Countries | Wind Threat + Structure + Material Spec")
                  
