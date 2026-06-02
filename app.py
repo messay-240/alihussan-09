@@ -4,7 +4,7 @@ import numpy as np
 import plotly.graph_objects as go
 from datetime import datetime
 
-st.set_page_config(page_title="SolarX Pro v23", layout="wide", page_icon="⚡")
+st.set_page_config(page_title="Solar Power Estemaiter", layout="wide", page_icon="⚡")
 
 # --- DARK PREMIUM THEME ---
 st.markdown("""
@@ -198,7 +198,7 @@ structure_db = {
 
 # --- SIDEBAR ---
 with st.sidebar:
-    st.title("⚡ SolarX Pro v23")
+    st.title("⚡ Solar Power Estemaiter")
     country = st.selectbox("🌍 Country - 120+ Options", sorted(db.keys()))
     c_lat, c_curr, c_sale, c_buy, esg_rating, labor_risk, sourcing, avg_ghi, elec_access, grid_v, grid_f, wind_kmh, wind_zone = db[country]
 
@@ -288,7 +288,7 @@ yearly_profit = [y * ((1-sum(export_24)/sum(gen_24))*buy_rate + (sum(export_24)/
 struct = structure_db[wind_zone]
 
 # --- HEADER ---
-st.markdown(f"<div class='main-header'>⚡ SolarX Pro: {country}</div>", unsafe_allow_html=True)
+st.markdown(f"<div class='main-header'>⚡ Solar Power Estemaiter: {country}</div>", unsafe_allow_html=True)
 
 # --- KPI 10 METRICS with WIND THREAT ---
 k1, k2, k3, k4, k5, k6, k7, k8, k9, k10 = st.columns(10)
