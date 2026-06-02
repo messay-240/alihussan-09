@@ -9,13 +9,83 @@ st.set_page_config(page_title="SolarX Pro v23", layout="wide", page_icon="⚡")
 # --- DARK PREMIUM THEME ---
 st.markdown("""
     <style>
-.stApp { background: linear-gradient(135deg, #0a192f 0%, #112240 100%); color: #e6f1ff; }
-[data-testid="stMetricValue"] { color: #64ffda!important; font-size: 32px; font-weight: 900; }
-.stMetric { background: rgba(100,255,218,0.05); backdrop-filter: blur(10px); border: 1px solid rgba(100,255,218,0.2); border-radius: 16px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
-.main-header { color: #64ffda; font-size: 48px; font-weight: 900; text-shadow: 0 0 20px rgba(100,255,218,0.5); margin-bottom: 40px; }
-.feature-box { background: rgba(17,34,64,0.8); backdrop-filter: blur(10px); border: 1px solid rgba(100,255,218,0.2); padding: 24px; border-radius: 16px; margin-bottom: 20px; }
-.info-label { background: #64ffda; color: #0a192f; padding: 8px 16px; border-radius: 8px; font-size: 0.95rem; font-weight: bold; }
-div[data-testid="stTabs"] { background: rgba(17,34,64,0.5); border-radius: 12px; }
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;900&display=swap');
+
+html, body, [class*="css"] { font-family: 'Poppins', sans-serif; }
+
+.stApp { 
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 75%, #f5576c 100%); 
+    background-attachment: fixed;
+    color: #1a1a2e; 
+}
+
+.main-header { 
+    color: white; 
+    font-size: 52px; 
+    font-weight: 900; 
+    text-shadow: 0 8px 32px rgba(0,0,0,0.3); 
+    margin-bottom: 40px; 
+    text-align: center;
+    background: rgba(255,255,255,0.15);
+    backdrop-filter: blur(20px);
+    padding: 30px;
+    border-radius: 24px;
+    border: 1px solid rgba(255,255,255,0.3);
+}
+
+[data-testid="stMetricValue"] { 
+    color: #667eea!important; 
+    font-size: 36px; 
+    font-weight: 900; 
+}
+
+.stMetric { 
+    background: rgba(255,255,255,0.85); 
+    backdrop-filter: blur(20px); 
+    border: 1px solid rgba(255,255,255,0.5); 
+    border-radius: 20px; 
+    padding: 24px; 
+    box-shadow: 0 8px 32px rgba(31,38,135,0.15);
+    transition: transform 0.3s;
+}
+.stMetric:hover { transform: translateY(-5px); }
+
+.feature-box { 
+    background: rgba(255,255,255,0.9); 
+    backdrop-filter: blur(20px); 
+    border: 1px solid rgba(255,255,255,0.6); 
+    padding: 28px; 
+    border-radius: 20px; 
+    margin-bottom: 20px;
+    box-shadow: 0 8px 32px rgba(31,38,135,0.12);
+}
+
+.info-label { 
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+    color: white; 
+    padding: 10px 20px; 
+    border-radius: 12px; 
+    font-size: 1rem; 
+    font-weight: 700;
+    box-shadow: 0 4px 15px rgba(102,126,234,0.4);
+}
+
+div[data-testid="stTabs"] button {
+    background: rgba(255,255,255,0.7);
+    color: #667eea;
+    border-radius: 12px;
+    font-weight: 600;
+    margin: 4px;
+}
+div[data-testid="stTabs"] button[aria-selected="true"] {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.sidebar .sidebar-content {
+    background: rgba(255,255,255,0.95);
+    backdrop-filter: blur(20px);
+}
     </style>
 """, unsafe_allow_html=True)
 
