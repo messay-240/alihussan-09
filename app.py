@@ -598,6 +598,30 @@ with tabs[12]:
         st.download_button("📊 Download CSV", csv, file_name=f"SolarX_{country}.csv")
 
     with c2:
+        def create_pdf():
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font('Arial', 'B', 16)
+    
+    # Emoji + Urdu hata do, sirf English + numbers rakho
+    pdf.cell(0, 10, f'Solar Report - {country}', 0, 1, 'C')
+    pdf.set_font('Arial', '', 12)
+    pdf.ln(5)
+    
+    pdf.cell(0, 10, f'System Size: {sys_size:.2f} kWp', 0, 1)
+    pdf.cell(0, 10, f'Daily Generation: {sum(gen_24):.1f} kWh', 0, 1)
+    pdf.cell(0, 10, f'Panel Type: {panel_type}', 0, 1)
+    pdf.cell(0, 10, f'Inverter Type: {inverter_type}', 0, 1)
+    pdf.cell(0, 10, f'Battery: {battery_type if has_batt else "None"}', 0, 1)
+    
+    # Wind threat me emoji hata do
+    clean_threat = threat_msg.replace("⚠️", "WARNING:").replace("✅", "OK:").replace("⚡", "Note:")
+    pdf.cell(0, 10, f'Wind Speed: {wind} km/h - {clean_threat}', 0, 1)
+    
+    pdf.ln(5)
+    pdf.cell(0, 10, f'Country: {country}, Grid: {grid_v}V {grid_f}Hz', 0, 1)
+    
+    return pdf.output(dest='S').encode('latin-1', 'replace')
         if enable_export:
             if PDF_ENABLED and FPDF:
                 def create_pdf():
