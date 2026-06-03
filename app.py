@@ -286,7 +286,6 @@ grid_v = country_data[9]
 grid_f = country_data[10]
 wind_kmh = country_data[11] if len(country_data) > 11 else 15
 wind_zone = country_data[12] if len(country_data) > 12 else "Normal"
-
     with st.expander("🔌 Inverter System"):
         inverter_type = st.selectbox("Inverter Type", list(inverter_db.keys()))
         inv_eff, inv_bonus, inv_cost, inv_note = inverter_db[inverter_type]
