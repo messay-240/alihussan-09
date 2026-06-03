@@ -520,7 +520,7 @@ def get_live_weather(lat, lon, api_key="demo"):
 with tabs[10]:
     st.markdown("<span class='info-label'>WEATHER + WIND THREAT</span>", unsafe_allow_html=True)
 
-    if use_live_weather and password == "solar2026":
+    if use_live_weather and password == "solar2026" and GEO_ENABLED:
         geolocator = Nominatim(user_agent="solar_app")
         location = geolocator.geocode(country)
         if location:
@@ -532,14 +532,19 @@ with tabs[10]:
                 cloud = live['cloud']
             else:
                 st.warning("API failed - using manual input")
-                cloud = st.slider("Cloud Cover %", 0, 100, 20)
-                wind = st.slider("Wind km/h", 0, 100, 15)
+                cloud = st.slider("Cloud Cover %", 0, 100, 20, key="cloud_manual_1")
+                wind = st.slider("Wind km/h", 0, 100, 15, key="wind_manual_1")
         else:
-            cloud = st.slider("Cloud Cover %", 0, 100, 20)
-            wind = st.slider("Wind km/h", 0, 100, 15)
+            cloud = st.slider("Cloud Cover %", 0, 100, 20, key="cloud_manual_2")
+            wind = st.slider("Wind km/h", 0, 100, 15, key="wind_manual_2")
     else:
-        cloud = st.slider("Cloud Cover %", 0, 100, 20)
-        wind = st.slider("Wind km/h", 0, 100, 15)
+        if use_live_weather and not GEO_ENABLED:
+            st.warning("geopy not installed. Add it in requirements.txt")
+        cloud = st.slider("Cloud Cover %", 0, 100, 20, key="cloud_manual_3")
+        wind = st.slider("Wind km/h", 0, 100, 15, key="wind_manual_3")
+
+    threat_msg = check_wind_threat(wind, panel_type)
+    #... rest code
 
     # WIND THREAT DISPLAY
     threat_msg = check_wind_threat(wind, panel_type)
