@@ -443,16 +443,20 @@ cloud = 20
 location_name = country
 
 if use_live_weather and password == "solar2026" and GEO_ENABLED:
-    geolocator = Nominatim(user_agent="solar_app_pro")
+    geolocator = Nominatim(user_agent="solarx_app_v1.0", timeout=5)
+try:
     location = geolocator.geocode(country)
     if location:
+        lat, lon = location.latitude, location.longitude
         location_name = location.address.split(',')[0]
-        live = get_live_weather(location.latitude, location.longitude)
-        if live:
-            temp_ambient = live['temp']
-            wind = live['wind']
-            cloud = live['cloud']
-            st.sidebar.success(f"📍 {location_name} - Live Weather Connected")
+    else:
+        st.warning(f"⚠️ Location '{country}' nahi mili. Manual lat/lon use ho rahe hain.")
+        lat, lon = 31.52, 74.35 # Lahore default
+        location_name = country
+except Exception as e:
+    st.warning(f"⚠️ Geocoder offline hai. Default location use ho rahi hai: Lahore")
+    lat, lon = 31.52, 74.35
+    location_name = country
 
 # Wind + Structure
 wind_force = calc_wind_load(wind, tilt, p_qty)
