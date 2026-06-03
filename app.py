@@ -3,6 +3,24 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 from datetime import datetime
+import requests
+
+# Safe imports - DEFAULT VALUE PEHLE SET KARO
+GEO_ENABLED = False
+PDF_ENABLED = False
+FPDF = None
+
+try:
+    from geopy.geocoders import Nominatim
+    GEO_ENABLED = True
+except:
+    pass
+
+try:
+    from fpdf import FPDF
+    PDF_ENABLED = True
+except:
+    pass
 
 st.set_page_config(page_title="Solar Power Estemaiter", layout="wide", page_icon="⚡")
 
