@@ -774,55 +774,110 @@ with tabs[12]:
         )
 
     # PDF BUTTON - FINAL FIX
-    with col2:
-        if enable_export and PDF_ENABLED and FPDF:
+   from io import BytesIO
+import folium
+from streamlit_folium import st_folium
+import requests
 
-            # PDF ko BytesIO me banaya
-            pdf_buffer = BytesIO()
-            pdf = FPDF()
-            pdf.add_page()
-            pdf.set_font('Arial', 'B', 16)
+@st.cache_data(ttl=1800)
+def get_7day_weather(lat, lon):
+    """7 Din ka weather Open-Meteo se"""
+    try:
+        url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&daily=temperature_2m_max,temperature_2m_min,wind_speed_10m_max,cloud_cover_mean&timezone=auto"
+        r = requests.get(url, timeout=7)
+        data = r.json()['daily']
 
-            def safe(t): return str(t).encode('latin-1', 'replace').decode('latin-1')
+        week_data = []
+        for i in range(7):
+            week_data.append({
+                'date': data['time'][i],
+                'temp_max': data['temperature_2m_max'][i],
+                'temp_min': data['temperature_2m_min'][i],
+                'wind_max': data['wind_speed_10m_max'][i] * 3.6,
+                'cloud': data['cloud_cover_mean'][i]
+            })
+        return week_data
+    except:
+        return None
 
-            pdf.cell(0, 10, safe('SolarX Pro Report'), 0, 1, 'C')
-            pdf.set_font('Arial', '', 12)
-            pdf.ln(5)
+with tabs[12]:
+    st.markdown("<span class='info-label'>🌤️ 7 DIN LIVE WEATHER + LOCATION MAP</span>", unsafe_allow_html=True)
 
-            lines = [
-                f"Country: {country}",
-                f"Location: {location_name}",
-                f"System Size: {sys_size:.2f} kWp",
-                f"Panel: {panel_type}",
-                f"Panels: {p_qty}",
-                f"Daily Gen: {sum(gen_24):.2f} kWh",
-                f"Wind: {wind:.1f} km/h",
-                f"Cost: {c_curr} {net_cost:,.0f}",
-                f"Payback: {payback:.1f} Years"
-            ]
-            for line in lines:
-                pdf.cell(0, 8, safe(line), 0, 1)
+    # Default manual values
+    lat, lon = c_lat, 70.0
+    location_name = country
+    wind = wind_kmh_db
+    cloud = 20
 
-            # IMPORTANT: pdf_data naam ka variable banaya - tumhare button me yehi naam hai
-            pdf.output(pdf_buffer)
-            pdf_buffer.seek(0)
-            pdf_data = pdf_buffer.getvalue() # YE LINE LAZMI HAI BB
+    # LIVE MODE
+    if use_live_weather and password == "solar2026" and GEO_ENABLED:
+        geolocator = Nominatim(user_agent="solarx_app")
+        location = geolocator.geocode(country)
 
-            # Type check
-            if isinstance(pdf_data, bytes) and len(pdf_data) > 0:
-                st.download_button(
-                    "📄 Download PDF",
-                    data=pdf_data, # YAHAN pdf_data BHEJA HAI
-                    file_name=f"SolarX_Report_{country}.pdf",
-                    mime="application/pdf",
-                    key="pdf_btn_2026"
-                )
+        if location:
+            lat, lon = location.latitude, location.longitude
+            location_name = location.address.split(',')[0]
+            week_weather = get_7day_weather(lat, lon)
+
+            if week_weather:
+                st.success(f"✅ LIVE: {location_name}")
+
+                # MAP + DATA
+                col_map, col_data = st.columns([1, 1])
+                with col_map:
+                    st.markdown("**📍 Google Map**")
+                    m = folium.Map(location=[lat, lon], zoom_start=10)
+                    folium.Marker([lat, lon], popup=location_name, icon=folium.Icon(color='red', icon='bolt')).add_to(m)
+                    st_folium(m, height=350, width=None)
+
+                with col_data:
+                    st.metric("Lat", f"{lat:.4f}° N")
+                    st.metric("Lon", f"{lon:.4f}° E")
+                    st.metric("Today Wind", f"{week_weather[0]['wind_max']:.1f} km/h")
+
+                # 7 DIN GRAPH
+                dates = [w['date'][5:] for w in week_weather]
+                temp_max = [w['temp_max'] for w in week_weather]
+                temp_min = [w['temp_min'] for w in week_weather]
+                wind_max = [w['wind_max'] for w in week_weather]
+
+                fig = go.Figure()
+                fig.add_trace(go.Bar(x=dates, y=temp_max, name="Max °C", marker_color='#ef4444'))
+                fig.add_trace(go.Bar(x=dates, y=temp_min, name="Min °C", marker_color='#3b82f6'))
+                fig.add_trace(go.Scatter(x=dates, y=wind_max, name="Wind km/h", yaxis='y2', line=dict(color='#f59e0b', width=3)))
+                fig.update_layout(yaxis=dict(title="°C"), yaxis2=dict(title="km/h", overlaying='y', side='right'), height=400)
+                st.plotly_chart(fig, use_container_width=True)
+
+                # TABLE
+                df_week = pd.DataFrame({
+                    "Date": dates,
+                    "Max °C": [round(t, 1) for t in temp_max],
+                    "Min °C": [round(t, 1) for t in temp_min],
+                    "Wind km/h": [round(w, 1) for w in wind_max],
+                    "Cloud %": [w['cloud'] for w in week_weather],
+                    "Risk": ["🔴 Extreme" if w>80 else "🟠 High" if w>50 else "🟢 Safe" for w in wind_max]
+                })
+                st.dataframe(df_week, use_container_width=True)
+
+                # WEEKLY GEN
+                avg_wind = np.mean(wind_max)
+                avg_cloud = np.mean([w['cloud'] for w in week_weather])
+                weather_factor = 1 - avg_cloud*0.008
+                weekly_gen = daily_yield * 7 * weather_factor
+                st.metric("7 Din Est Generation", f"{weekly_gen:.1f} kWh")
+
             else:
-                st.error("PDF bytes empty hain")
+                st.error("Weather fetch nahi hua")
         else:
-            st.info("PDF ke liye: Sidebar ON + pip install fpdf2")
+            st.warning("Location nahi mili")
 
-    st.dataframe(df, height=350)
+    elif use_live_weather and password!= "solar2026":
+        st.error("❌ Password galat. Sahi: `solar2026`")
+
+    else:
+        st.info("💡 Live OFF hai. Sidebar se ON + Password dalo")
+        st.metric("Country", country)
+        st.metric("Weekly Gen", f"{daily_yield*7:.1f} kWh")
 with tabs[13]:
     st.markdown("<span class='info-label'>📤 EXPORT REPORT - CSV + PDF</span>", unsafe_allow_html=True)
     df = pd.DataFrame({
