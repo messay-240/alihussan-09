@@ -7,7 +7,7 @@ import requests
 from datetime import datetime
 from geopy.geocoders import Nominatim
 import math
-
+from io import BytesIO
 try:
     from fpdf import FPDF
     PDF_ENABLED = True
