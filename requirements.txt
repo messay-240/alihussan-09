@@ -5,3 +5,4 @@ plotly
 requests
 geopy==2.4.1
 fpdf2
+unidecode
