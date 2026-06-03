@@ -222,7 +222,41 @@ structure_db = {
 
 # --- SIDEBAR --
 with st.sidebar:
-    st.title("⚡ Solar Power Estemaiter")
+    st.title("⚡ Solar Power Estimator")
+
+    country = st.selectbox("🌍 Country - 120+ Options", sorted(db.keys()), key="country_select")
+    c_lat, c_curr, c_sale, c_buy, esg_rating, labor_risk, sourcing, avg_ghi, elec_access, grid_v, grid_f = db[country]
+
+    st.divider()
+
+    # 👇 YE SECTION 4 SPACE INDENT ME HAI - TAB MAT DABANA
+    with st.expander("🔐 Weather & Export Settings", expanded=False):
+
+        # 4 space
+        password = st.text_input(
+            "Weather API Password",
+            type="password",
+            value="solar2026",
+            key="pwd_input"
+        )
+
+        # 4 space
+        use_live_weather = st.checkbox(
+            "Use Live Weather API",
+            value=False,
+            key="live_weather_chk"
+        )
+
+        # 4 space - YE LINE 514 WALI HAI
+        enable_export = st.checkbox(
+            "Enable PDF Report",
+            value=True,
+            key="enable_pdf"
+        )
+
+    st.divider()
+    # 👆 SECTION KHATAM
+    
     country = st.selectbox("🌍 Country - 120+ Options", sorted(db.keys()))
     c_lat, c_curr, c_sale, c_buy, esg_rating, labor_risk, sourcing, avg_ghi, elec_access, grid_v, grid_f, wind_kmh, wind_zone = db[country]
 
