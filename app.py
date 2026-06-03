@@ -267,25 +267,6 @@ with st.expander("🔐 Weather & Export Settings", expanded=False):
     st.caption("PDF report enable karo to Tab 12 me download button aayega")
 
 st.divider()
-
-# EDIT: Key unique kar di
-country = st.selectbox("🌍 Country - 120+ Options", sorted(db.keys()), key="country_select_main_v2")
-
-country_data = list(db[country]) + [None] * 20
-c_lat = country_data[0]
-c_curr = country_data[1]
-c_sale = country_data[2]
-c_buy = country_data[3]
-esg_rating = country_data[4]
-labor_risk = country_data[5]
-sourcing = country_data[6]
-avg_ghi = country_data[7]
-elec_access = country_data[8]
-grid_v = country_data[9]
-grid_f = country_data[10]
-wind_kmh = country_data[11] if len(country_data) > 11 else 15
-wind_zone = country_data[12] if len(country_data) > 12 else "Normal"
-
 st.divider()
 
 with st.expander("🔌 Inverter System"):
