@@ -478,7 +478,80 @@ with tabs[10]:
             st.info("🟡 MODERATE: 30-50 km/h")
         else:
             st.success("🟢 LOW: <30 km/h - Safe")
+# --- PASSWORD + LIVE WEATHER API ---
+import requests
+from geopy.geocoders import Nominatim
 
+with st.sidebar:
+    st.divider()
+    with st.expander("🔐 Weather & Export Settings"):
+        password = st.text_input("Weather API Password", type="password", value="solar2026")
+        use_live_weather = st.checkbox("Use Live Weather API", value=False)
+        enable_export = st.checkbox("Enable PDF Report", value=True)
+
+# Wind Threat Calculation
+def check_wind_threat(wind_speed, panel_type):
+    threshold = 100 if "IBC" in panel_type or "HJT" in panel_type else 80
+    if wind_speed > threshold:
+        return f"⚠️ HIGH WIND ALERT: {wind_speed} km/h > {threshold} km/h limit"
+    elif wind_speed > 60:
+        return f"⚡ Moderate Wind: {wind_speed} km/h - Check mounting"
+    else:
+        return f"✅ Safe: {wind_speed} km/h"
+
+# Live Weather Function
+@st.cache_data(ttl=1800)
+def get_live_weather(lat, lon, api_key="demo"):
+    if password!= "solar2026":
+        return None
+    try:
+        url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,wind_speed_10m,cloud_cover&timezone=auto"
+        r = requests.get(url, timeout=5)
+        data = r.json()['current']
+        return {
+            'temp': data['temperature_2m'],
+            'wind': data['wind_speed_10m'],
+            'cloud': data['cloud_cover']
+        }
+    except:
+        return None
+
+# Update tabs[10] Weather section:
+with tabs[10]:
+    st.markdown("<span class='info-label'>WEATHER + WIND THREAT</span>", unsafe_allow_html=True)
+
+    if use_live_weather and password == "solar2026":
+        geolocator = Nominatim(user_agent="solar_app")
+        location = geolocator.geocode(country)
+        if location:
+            live = get_live_weather(location.latitude, location.longitude)
+            if live:
+                st.success("🌍 Live Weather Connected")
+                temp_ambient = live['temp']
+                wind = live['wind']
+                cloud = live['cloud']
+            else:
+                st.warning("API failed - using manual input")
+                cloud = st.slider("Cloud Cover %", 0, 100, 20)
+                wind = st.slider("Wind km/h", 0, 100, 15)
+        else:
+            cloud = st.slider("Cloud Cover %", 0, 100, 20)
+            wind = st.slider("Wind km/h", 0, 100, 15)
+    else:
+        cloud = st.slider("Cloud Cover %", 0, 100, 20)
+        wind = st.slider("Wind km/h", 0, 100, 15)
+
+    # WIND THREAT DISPLAY
+    threat_msg = check_wind_threat(wind, panel_type)
+    if "HIGH" in threat_msg:
+        st.markdown(f"<div class='wind-alert'>{threat_msg}</div>", unsafe_allow_html=True)
+    elif "Moderate" in threat_msg:
+        st.warning(threat_msg)
+    else:
+        st.success(threat_msg)
+
+    weather_factor = 1 - cloud*0.008 + wind*0.0003
+    st.metric("Weather Adjusted Yield", f"{daily_yield*weather_factor:.1f} kWh", f"{(weather_factor-1)*100:.1f}%")
 with tabs[11]:
     st.markdown("<span class='info-label'>STRUCTURE & MATERIAL SPEC</span>", unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)
@@ -493,18 +566,34 @@ with tabs[11]:
         st.error(f"⚠️ WARNING: Selected tilt {tilt}° exceeds max {struct['tilt_max']}° for {wind_zone} wind zone. Reduce tilt or upgrade structure!")
 
 with tabs[12]:
-    st.markdown("<span class='info-label'>PROTECTION</span>", unsafe_allow_html=True)
+    st.markdown("<span class='info-label'>EXPORT REPORT</span>", unsafe_allow_html=True)
+
+    df = pd.DataFrame({"Hour": hours, "Gen_kW": gen_24, "Load_kW": load_24, "Export_kW": export_24, "Battery_kWh": soc})
+    csv = df.to_csv(index=False)
+
     c1, c2 = st.columns(2)
     with c1:
-        st.write("**DC Protection:**")
-        st.write(f"• DC Fuse: {current_dc*1.56:.0f} A")
-        st.write(f"• DC Isolator: 1000V DC")
-        st.write(f"• SPD: {voc_string*1.2:.0f}V")
+        st.download_button("📊 Download CSV", csv, file_name=f"SolarX_{country}.csv")
+
     with c2:
-        st.write("**AC Protection:**")
-        st.write(f"• AC Breaker: {sys_size*1000/grid_v*1.25:.0f} A")
-        st.write(f"• RCD: 30mA")
-        st.write(f"• Earthing: <5 Ohms")
+        if enable_export:
+            def create_pdf():
+                pdf = FPDF()
+                pdf.add_page()
+                pdf.set_font('Arial', 'B', 16)
+                pdf.cell(0, 10, f'Solar Report - {country}', 0, 1, 'C')
+                pdf.set_font('Arial', '', 12)
+                pdf.cell(0, 10, f'System Size: {sys_size:.2f} kWp', 0, 1)
+                pdf.cell(0, 10, f'Daily Gen: {sum(gen_24):.1f} kWh', 0, 1)
+                pdf.cell(0, 10, f'Panel: {panel_type}', 0, 1)
+                pdf.cell(0, 10, f'Inverter: {inverter_type}', 0, 1)
+                pdf.cell(0, 10, f'Wind: {wind} km/h - {threat_msg}', 0, 1)
+                return pdf.output(dest='S').encode('latin1')
+
+            pdf_data = create_pdf()
+            st.download_button("📄 Download PDF Report", pdf_data, file_name=f"SolarX_{country}.pdf", mime='application/pdf')
+
+    st.dataframe(df, height=400)
 
 with tabs[13]:
     df = pd.DataFrame({"Hour": hours, "Gen_kW": gen_24, "Load_kW": load_24, "Export_kW": export_24, "Battery_kWh": soc})
