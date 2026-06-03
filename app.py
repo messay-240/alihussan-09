@@ -225,7 +225,20 @@ with st.sidebar:
     st.title("⚡ Solar Power Estimator")
 
     country = st.selectbox("🌍 Country - 120+ Options", sorted(db.keys()), key="country_select")
-    c_lat, c_curr, c_sale, c_buy, esg_rating, labor_risk, sourcing, avg_ghi, elec_access, grid_v, grid_f = db[country]
+    country_data = list(db[country]) + [None] * 15 # 15 tak pad kar do
+    c_lat = country_data[0]
+    c_curr = country_data[1]
+    c_sale = country_data[2]
+    c_buy = country_data[3]
+    esg_rating = country_data[4]
+    labor_risk = country_data[5]
+    sourcing = country_data[6]
+    avg_ghi = country_data[7]
+    elec_access = country_data[8]
+    grid_v = country_data[9]
+    grid_f = country_data[10]
+
+    st.divider()
 
     st.divider()
 
