@@ -2,12 +2,12 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-import plotly.express as px
-import requests
 from datetime import datetime
+from io import BytesIO # <-- YE YAHAN TOP PE
+import folium
+from streamlit_folium import st_folium
 from geopy.geocoders import Nominatim
-import math
-from io import BytesIO
+import requests
 try:
     from fpdf import FPDF
     PDF_ENABLED = True
@@ -746,70 +746,11 @@ from io import BytesIO # TOP PE IMPORTS ME YE ADD KARO
 #... baqi code same...
 
 with tabs[12]:
-    st.markdown("<span class='info-label'>📤 EXPORT REPORT - CSV + PDF</span>", unsafe_allow_html=True)
-
-    # DataFrame
-    df = pd.DataFrame({
-        "Hour": hours,
-        "Generation_kW": [round(x, 3) for x in gen_24],
-        "Load_kW": [round(x, 3) for x in load_24],
-        "Export_kW": [round(x, 3) for x in export_24],
-        "Import_kW": [round(x, 3) for x in import_24],
-        "Battery_SOC_kWh": [round(x, 3) for x in soc],
-        "Battery_%": [round((x/b_cap)*100, 1) if has_batt and b_cap > 0 else 0 for x in soc]
-    })
-
-    csv_data = df.to_csv(index=False).encode('utf-8')
-
-    col1, col2 = st.columns(2)
-
-    # CSV BUTTON
-    with col1:
-        st.download_button(
-            "📥 Download CSV",
-            data=csv_data,
-            file_name=f"SolarX_{country}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
-            mime="text/csv",
-            key="csv_btn_2026"
-        )
-
-    # PDF BUTTON - FINAL FIX
-   from io import BytesIO
-import folium
-from streamlit_folium import st_folium
-import requests
-
-@st.cache_data(ttl=1800)
-def get_7day_weather(lat, lon):
-    """7 Din ka weather Open-Meteo se"""
-    try:
-        url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&daily=temperature_2m_max,temperature_2m_min,wind_speed_10m_max,cloud_cover_mean&timezone=auto"
-        r = requests.get(url, timeout=7)
-        data = r.json()['daily']
-
-        week_data = []
-        for i in range(7):
-            week_data.append({
-                'date': data['time'][i],
-                'temp_max': data['temperature_2m_max'][i],
-                'temp_min': data['temperature_2m_min'][i],
-                'wind_max': data['wind_speed_10m_max'][i] * 3.6,
-                'cloud': data['cloud_cover_mean'][i]
-            })
-        return week_data
-    except:
-        return None
-
-with tabs[12]:
     st.markdown("<span class='info-label'>🌤️ 7 DIN LIVE WEATHER + LOCATION MAP</span>", unsafe_allow_html=True)
 
-    # Default manual values
     lat, lon = c_lat, 70.0
     location_name = country
-    wind = wind_kmh_db
-    cloud = 20
 
-    # LIVE MODE
     if use_live_weather and password == "solar2026" and GEO_ENABLED:
         geolocator = Nominatim(user_agent="solarx_app")
         location = geolocator.geocode(country)
@@ -822,20 +763,17 @@ with tabs[12]:
             if week_weather:
                 st.success(f"✅ LIVE: {location_name}")
 
-                # MAP + DATA
                 col_map, col_data = st.columns([1, 1])
                 with col_map:
-                    st.markdown("**📍 Google Map**")
                     m = folium.Map(location=[lat, lon], zoom_start=10)
                     folium.Marker([lat, lon], popup=location_name, icon=folium.Icon(color='red', icon='bolt')).add_to(m)
-                    st_folium(m, height=350, width=None)
+                    st_folium(m, height=350)
 
                 with col_data:
                     st.metric("Lat", f"{lat:.4f}° N")
                     st.metric("Lon", f"{lon:.4f}° E")
                     st.metric("Today Wind", f"{week_weather[0]['wind_max']:.1f} km/h")
 
-                # 7 DIN GRAPH
                 dates = [w['date'][5:] for w in week_weather]
                 temp_max = [w['temp_max'] for w in week_weather]
                 temp_min = [w['temp_min'] for w in week_weather]
@@ -848,7 +786,6 @@ with tabs[12]:
                 fig.update_layout(yaxis=dict(title="°C"), yaxis2=dict(title="km/h", overlaying='y', side='right'), height=400)
                 st.plotly_chart(fig, use_container_width=True)
 
-                # TABLE
                 df_week = pd.DataFrame({
                     "Date": dates,
                     "Max °C": [round(t, 1) for t in temp_max],
@@ -859,13 +796,11 @@ with tabs[12]:
                 })
                 st.dataframe(df_week, use_container_width=True)
 
-                # WEEKLY GEN
                 avg_wind = np.mean(wind_max)
                 avg_cloud = np.mean([w['cloud'] for w in week_weather])
                 weather_factor = 1 - avg_cloud*0.008
                 weekly_gen = daily_yield * 7 * weather_factor
                 st.metric("7 Din Est Generation", f"{weekly_gen:.1f} kWh")
-
             else:
                 st.error("Weather fetch nahi hua")
         else:
