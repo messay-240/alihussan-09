@@ -3,7 +3,7 @@ try:
     PDF_ENABLED = True
 except:
     PDF_ENABLED = False
-    FPDF = None  
+    FPDF = None
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -220,7 +220,49 @@ structure_db = {
     "Extreme": {"type": "Steel Structure + Wind Deflector", "tilt_max": 15, "material": "S355 Steel + Wind Deflector", "foundation": "Deep Concrete Pile", "clamp": "Hurricane Rated Clamp"}
 }
 
-# --- SIDEBAR ---
+# --- SIDEBAR --
+with st.sidebar:
+    st.title("⚡ Solar Power Estimator")
+
+    # Country select - ye sab se pehle ho
+    country = st.selectbox("🌍 Country - 120+ Options", sorted(db.keys()), key="country_select")
+    c_lat, c_curr, c_sale, c_buy, esg_rating, labor_risk, sourcing, avg_ghi, elec_access, grid_v, grid_f = db[country]
+
+    st.divider()
+
+    # 👇 YE PURA SECTION PASTE KARO
+    with st.expander("🔐 Weather & Export Settings", expanded=False):
+
+        # 1. Weather API Password
+        password = st.text_input(
+            "Weather API Password",
+            type="password",
+            value="solar2026",
+            key="pwd_input",
+            help="Password for live weather API"
+        )
+
+        # 2. Live Weather Checkbox
+        use_live_weather = st.checkbox(
+            "Use Live Weather API",
+            value=False,
+            key="live_weather_chk",
+            help="Turn on for real-time wind + cloud data"
+        )
+
+        # 3. PDF Export Checkbox - YE WALA TUM MANG RAHE HO
+        enable_export = st.checkbox(
+            "Enable PDF Report",
+            value=True,
+            key="enable_pdf",
+            help="Turn on to show PDF download button in Export tab"
+        )
+
+    st.divider()
+    # 👆 SECTION KHATAM
+
+    # Baaki sidebar sections yahan se shuru...
+    # Solar Array, Inverter, Battery, Load etc
 with st.sidebar:
     st.title("⚡ Solar Power Estemaiter")
     country = st.selectbox("🌍 Country - 120+ Options", sorted(db.keys()))
@@ -613,7 +655,7 @@ with tabs[12]:
 
     with c1:
         st.download_button(
-            label="📊 Download CSV",
+            label="Download CSV",
             data=csv,
             file_name=f"SolarX_{country}_{datetime.now().strftime('%Y%m%d')}.csv",
             mime="text/csv",
@@ -625,50 +667,52 @@ with tabs[12]:
         if enable_export:
             if PDF_ENABLED and FPDF:
 
-                # PDF banane ka function
-               def create_pdf():
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font('Arial', 'B', 16)
+                # PDF banane ka function - 4 space indent zaroori hai
+                def create_pdf():
+                    pdf = FPDF()
+                    pdf.add_page()
+                    pdf.set_font('Arial', 'B', 16)
 
-    # Helper function - har text ko safe bana dega
-    def safe_text(txt):
-        return str(txt).encode('ascii', 'ignore').decode('ascii')
+                    # Helper function - har text ko ASCII safe bana dega
+                    def safe_text(txt):
+                        return str(txt).encode('ascii', 'ignore').decode('ascii')
 
-    # Header
-    pdf.cell(0, 10, safe_text(f'Solar Report - {country}'), 0, 1, 'C')
-    pdf.ln(5)
+                    # Header
+                    pdf.cell(0, 10, safe_text(f'Solar Report - {country}'), 0, 1, 'C')
+                    pdf.ln(5)
 
-    pdf.set_font('Arial', '', 12)
-    pdf.cell(0, 8, safe_text(f'Date: {datetime.now().strftime("%Y-%m-%d %H:%M")}'), 0, 1)
-    pdf.ln(3)
+                    pdf.set_font('Arial', '', 12)
+                    pdf.cell(0, 8, safe_text(f'Date: {datetime.now().strftime("%Y-%m-%d %H:%M")}'), 0, 1)
+                    pdf.ln(3)
 
-    # System Details
-    pdf.cell(0, 8, safe_text(f'System Size: {sys_size:.2f} kWp'), 0, 1)
-    pdf.cell(0, 8, safe_text(f'Panel Type: {panel_type}'), 0, 1)
-    pdf.cell(0, 8, safe_text(f'Inverter Type: {inverter_type}'), 0, 1)
-    pdf.cell(0, 8, safe_text(f'Battery Type: {battery_type if has_batt else "No Battery"}'), 0, 1)
-    pdf.ln(3)
+                    # System Details
+                    pdf.cell(0, 8, safe_text(f'System Size: {sys_size:.2f} kWp'), 0, 1)
+                    pdf.cell(0, 8, safe_text(f'Panel Type: {panel_type}'), 0, 1)
+                    pdf.cell(0, 8, safe_text(f'Inverter Type: {inverter_type}'), 0, 1)
+                    pdf.cell(0, 8, safe_text(f'Battery Type: {battery_type if has_batt else "No Battery"}'), 0, 1)
+                    pdf.ln(3)
 
-    # Generation Details
-    pdf.cell(0, 8, safe_text(f'Daily Generation: {sum(gen_24):.2f} kWh'), 0, 1)
-    pdf.cell(0, 8, safe_text(f'Daily Load: {h_load:.2f} kWh'), 0, 1)
-    pdf.cell(0, 8, safe_text(f'Self Consumption: {(1-sum(import_24)/h_load)*100:.1f}%'), 0, 1)
-    pdf.ln(3)
+                    # Generation Details
+                    pdf.cell(0, 8, safe_text(f'Daily Generation: {sum(gen_24):.2f} kWh'), 0, 1)
+                    pdf.cell(0, 8, safe_text(f'Daily Load: {h_load:.2f} kWh'), 0, 1)
+                    if h_load > 0:
+                        self_cons = (1 - sum(import_24)/h_load) * 100
+                        pdf.cell(0, 8, safe_text(f'Self Consumption: {self_cons:.1f}%'), 0, 1)
+                    pdf.ln(3)
 
-    # Wind + Weather - sab clean
-    clean_threat = safe_text(threat_msg)
-    pdf.cell(0, 8, safe_text(f'Wind Speed: {wind} km/h'), 0, 1)
-    pdf.cell(0, 8, safe_text(f'Wind Status: {clean_threat}'), 0, 1)
-    pdf.cell(0, 8, safe_text(f'Cloud Cover: {cloud}%'), 0, 1)
+                    # Wind + Weather
+                    pdf.cell(0, 8, safe_text(f'Wind Speed: {wind} km/h'), 0, 1)
+                    pdf.cell(0, 8, safe_text(f'Wind Status: {threat_msg}'), 0, 1)
+                    pdf.cell(0, 8, safe_text(f'Cloud Cover: {cloud}%'), 0, 1)
 
-    return pdf.output(dest='S')
+                    return pdf.output(dest='S')
+
                 # PDF data banao
                 pdf_data = create_pdf()
 
                 # PDF download button
                 st.download_button(
-                    label="📄 Download PDF Report",
+                    label="Download PDF Report",
                     data=pdf_data,
                     file_name=f"SolarX_{country}_{datetime.now().strftime('%Y%m%d')}.pdf",
                     mime="application/pdf",
