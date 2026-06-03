@@ -670,73 +670,68 @@ with tabs[12]:
         "Battery_%": [round((x/b_cap)*100, 1) if has_batt and b_cap > 0 else 0 for x in soc]
     })
 
-    csv_bytes = df.to_csv(index=False).encode('utf-8')
+    csv_data = df.to_csv(index=False).encode('utf-8')
 
     col1, col2 = st.columns(2)
 
-    # CSV BUTTON - YE HAMESHA CHALTA HAI
+    # CSV BUTTON
     with col1:
         st.download_button(
             "📥 Download CSV",
-            data=csv_bytes,
+            data=csv_data,
             file_name=f"SolarX_{country}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
             mime="text/csv",
-            key="csv_final_999"
+            key="csv_btn_2026"
         )
 
     # PDF BUTTON - FINAL FIX
     with col2:
         if enable_export and PDF_ENABLED and FPDF:
 
-            # PDF ko BytesIO me banate hain
-            buffer = BytesIO()
+            # PDF ko BytesIO me banaya
+            pdf_buffer = BytesIO()
             pdf = FPDF()
             pdf.add_page()
             pdf.set_font('Arial', 'B', 16)
 
-            def txt(t): return str(t).encode('latin-1', 'replace').decode('latin-1')
+            def safe(t): return str(t).encode('latin-1', 'replace').decode('latin-1')
 
-            pdf.cell(0, 10, txt('SolarX Pro Report'), 0, 1, 'C')
+            pdf.cell(0, 10, safe('SolarX Pro Report'), 0, 1, 'C')
             pdf.set_font('Arial', '', 12)
             pdf.ln(5)
 
-            report_lines = [
+            lines = [
                 f"Country: {country}",
                 f"Location: {location_name}",
                 f"System Size: {sys_size:.2f} kWp",
                 f"Panel: {panel_type}",
                 f"Panels: {p_qty}",
-                f"Inverter: {inverter_type}",
                 f"Daily Gen: {sum(gen_24):.2f} kWh",
                 f"Wind: {wind:.1f} km/h",
-                f"Wind Force: {wind_force:.2f} kN",
-                f"Cable: {cable_size} mm2",
-                f"Voltage Drop: {vd_percent:.2f}%",
-                f"Total Cost: {c_curr} {net_cost:,.0f}",
+                f"Cost: {c_curr} {net_cost:,.0f}",
                 f"Payback: {payback:.1f} Years"
             ]
+            for line in lines:
+                pdf.cell(0, 8, safe(line), 0, 1)
 
-            for line in report_lines:
-                pdf.cell(0, 8, txt(line), 0, 1)
+            # IMPORTANT: pdf_data naam ka variable banaya - tumhare button me yehi naam hai
+            pdf.output(pdf_buffer)
+            pdf_buffer.seek(0)
+            pdf_data = pdf_buffer.getvalue() # YE LINE LAZMI HAI BB
 
-            # CRITICAL: Direct BytesIO me output
-            pdf.output(buffer)
-            buffer.seek(0) # pointer start pe
-            pdf_bytes = buffer.getvalue()
-
-            # Double check - bytes hai ya nahi
-            if isinstance(pdf_bytes, bytes) and len(pdf_bytes) > 0:
+            # Type check
+            if isinstance(pdf_data, bytes) and len(pdf_data) > 0:
                 st.download_button(
-                    "📄 Download PDF Report",
-                    data=pdf_bytes,
+                    "📄 Download PDF",
+                    data=pdf_data, # YAHAN pdf_data BHEJA HAI
                     file_name=f"SolarX_Report_{country}.pdf",
                     mime="application/pdf",
-                    key="pdf_final_999"
+                    key="pdf_btn_2026"
                 )
             else:
-                st.error("PDF bytes create nahi hue")
+                st.error("PDF bytes empty hain")
         else:
-            st.info("PDF ke liye: Sidebar ON + `pip install fpdf2`")
+            st.info("PDF ke liye: Sidebar ON + pip install fpdf2")
 
     st.dataframe(df, height=350)
 with tabs[13]:
