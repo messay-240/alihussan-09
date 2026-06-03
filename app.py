@@ -356,12 +356,6 @@ with st.sidebar:
 
     st.divider()
 
-with st.sidebar:
-    st.title("⚡ SolarX Pro")
-    country = st.selectbox("🌍 Country", sorted(db.keys()))
-    country_data = list(db[country]) + [None] * 15
-    c_lat, c_curr, c_sale, c_buy, esg_rating, labor_risk, sourcing, avg_ghi, elec_access, grid_v, grid_f, wind_kmh_db, wind_zone = country_data[:13]
-
     st.divider()
     st.markdown("### 🔐 Live Weather Access")
     password = st.text_input("Password", type="password", value="")
