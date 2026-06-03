@@ -784,10 +784,10 @@ with tabs[12]:
 
                 col_map, col_data = st.columns([1, 1])
                 with col_map:
+                    st.markdown("**📍 Google Map**")
                     m = folium.Map(location=[lat, lon], zoom_start=10)
                     folium.Marker([lat, lon], popup=location_name, icon=folium.Icon(color='red', icon='bolt')).add_to(m)
-                    st_folium(m, height=350)
-
+                    st_folium(m, height=350, key=f"map_{lat}_{lon}_{country}") # <-- KEY ADD KAR DI
                 with col_data:
                     st.metric("Lat", f"{lat:.4f}° N")
                     st.metric("Lon", f"{lon:.4f}° E")
