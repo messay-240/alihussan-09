@@ -8,6 +8,31 @@ import folium
 from streamlit_folium import st_folium
 from geopy.geocoders import Nominatim
 import requests
+
+@st.cache_data(ttl=1800)
+def get_7day_weather(lat, lon):
+    """7 Din ka weather Open-Meteo API se"""
+    try:
+        url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&daily=temperature_2m_max,temperature_2m_min,wind_speed_10m_max,cloud_cover_mean&hourly=temperature_2m,wind_speed_10m,cloud_cover&timezone=auto"
+        r = requests.get(url, timeout=7)
+        data = r.json()
+
+        daily = data['daily']
+        hourly = data['hourly']
+
+        week_data = []
+        for i in range(7):
+            week_data.append({
+                'date': daily['time'][i],
+                'temp_max': daily['temperature_2m_max'][i],
+                'temp_min': daily['temperature_2m_min'][i],
+                'wind_max': daily['wind_speed_10m_max'][i] * 3.6, # m/s to km/h
+                'cloud': daily['cloud_cover_mean'][i]
+            })
+
+        return week_data, hourly
+    except Exception as e:
+        return None, None
 try:
     from fpdf import FPDF
     PDF_ENABLED = True
