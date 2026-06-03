@@ -510,52 +510,15 @@ with tabs[9]:
     if pr > 80:
         st.success("✅ Excellent design")
 
-with tabs[10]:
-    st.markdown("<span class='info-label'>WEATHER & WIND ANALYSIS</span>", unsafe_allow_html=True)
-    col1, col2 = st.columns(2)
-
-    with col1:
-        cloud = st.slider("Cloud Cover %", 0, 100, 20)
-        wind_speed = st.slider("Wind Speed km/h", 0, 150, wind_kmh, key='wind_speed')
-        weather_factor = 1 - cloud*0.008 + wind_speed*0.0003
-        st.metric("Weather Yield", f"{daily_yield*weather_factor:.1f} kWh", f"{(weather_factor-1)*100:.1f}%")
-
-    with col2:
-        st.markdown(f"<b>🌪️ Wind Threat: {wind_zone} Zone</b>", unsafe_allow_html=True)
-        st.metric("Avg Wind Speed", f"{wind_kmh} km/h")
-        if wind_zone == "Extreme":
-            st.error("🔴 EXTREME: >80 km/h - Structure damage risk!")
-            st.write("• Use hurricane rated mounting")
-            st.write("• Reduce tilt to <15°")
-            st.write("• Add wind deflectors")
-        elif wind_zone == "High":
-            st.warning("🟠 HIGH: 50-80 km/h - Strong winds")
-            st.write("• Cross bracing required")
-            st.write("• Check bolts monthly")
-        elif wind_zone == "Moderate":
-            st.info("🟡 MODERATE: 30-50 km/h")
-        else:
-            st.success("🟢 LOW: <30 km/h - Safe")
-# --- PASSWORD + LIVE WEATHER API ---
-import requests
-from geopy.geocoders import Nominatim
-
-with st.sidebar:
-    st.divider()
-    with st.expander("🔐 Weather & Export Settings"):
-        password = st.text_input("Weather API Password", type="password", value="solar2026")
-        use_live_weather = st.checkbox("Use Live Weather API", value=False)
-       enable_export = st.checkbox("Enable PDF Report", value=True, key="enable_pdf")
-
 # Wind Threat Calculation
 def check_wind_threat(wind_speed, panel_type):
     threshold = 100 if "IBC" in panel_type or "HJT" in panel_type else 80
     if wind_speed > threshold:
-        return f"⚠️ HIGH WIND ALERT: {wind_speed} km/h > {threshold} km/h limit"
+        return f"HIGH WIND ALERT: {wind_speed} km/h > {threshold} km/h limit"
     elif wind_speed > 60:
-        return f"⚡ Moderate Wind: {wind_speed} km/h - Check mounting"
+        return f"Moderate Wind: {wind_speed} km/h - Check mounting"
     else:
-        return f"✅ Safe: {wind_speed} km/h"
+        return f"Safe: {wind_speed} km/h"
 
 # Live Weather Function
 @st.cache_data(ttl=1800)
@@ -573,11 +536,10 @@ def get_live_weather(lat, lon, api_key="demo"):
         }
     except:
         return None
-
-# Update tabs[10] Weather section:
 with tabs[10]:
-    st.markdown("<span class='info-label'>WEATHER + WIND THREAT</span>", unsafe_allow_html=True)
+    st.markdown("<span class='info-label'>WEATHER & WIND ANALYSIS</span>", unsafe_allow_html=True)
 
+    # Live Weather Logic
     if use_live_weather and password == "solar2026" and GEO_ENABLED:
         geolocator = Nominatim(user_agent="solar_app")
         location = geolocator.geocode(country)
@@ -593,28 +555,48 @@ with tabs[10]:
                 cloud = st.slider("Cloud Cover %", 0, 100, 20, key="cloud_manual_1")
                 wind = st.slider("Wind km/h", 0, 100, 15, key="wind_manual_1")
         else:
+            st.warning("Location not found")
             cloud = st.slider("Cloud Cover %", 0, 100, 20, key="cloud_manual_2")
             wind = st.slider("Wind km/h", 0, 100, 15, key="wind_manual_2")
     else:
         if use_live_weather and not GEO_ENABLED:
-            st.warning("geopy not installed. Add it in requirements.txt")
+            st.warning("geopy not installed. Add 'geopy' in requirements.txt")
         cloud = st.slider("Cloud Cover %", 0, 100, 20, key="cloud_manual_3")
-        wind = st.slider("Wind km/h", 0, 100, 15, key="wind_manual_3")
+        wind = st.slider("Wind km/h", 0, 100, 15, key="wind_manual_3")[10]
 
-    threat_msg = check_wind_threat(wind, panel_type)
-    #... rest code
+    col1, col2 = st.columns(2)
 
-    # WIND THREAT DISPLAY
-    threat_msg = check_wind_threat(wind, panel_type)
-    if "HIGH" in threat_msg:
-        st.markdown(f"<div class='wind-alert'>{threat_msg}</div>", unsafe_allow_html=True)
-    elif "Moderate" in threat_msg:
-        st.warning(threat_msg)
-    else:
-        st.success(threat_msg)
+    with col1:
+        st.metric("Cloud Cover", f"{cloud}%")
+        st.metric("Wind Speed", f"{wind} km/h")
+        weather_factor = 1 - cloud*0.008 + wind*0.0003
+        st.metric("Weather Yield", f"{daily_yield*weather_factor:.1f} kWh", f"{(weather_factor-1)*100:.1f}%")
 
-    weather_factor = 1 - cloud*0.008 + wind*0.0003
-    st.metric("Weather Adjusted Yield", f"{daily_yield*weather_factor:.1f} kWh", f"{(weather_factor-1)*100:.1f}%")
+    with col2:
+        threat_msg = check_wind_threat(wind, panel_type)
+
+        # WIND THREAT DISPLAY
+        if "HIGH" in threat_msg:
+            st.markdown(f"<div class='wind-alert'>🔴 {threat_msg}</div>", unsafe_allow_html=True)
+        elif "Moderate" in threat_msg:
+            st.warning(f"🟠 {threat_msg}")
+        else:
+            st.success(f"🟢 {threat_msg}")
+
+        # Wind Zone Details
+        if wind > 80:
+            st.error("EXTREME: >80 km/h - Structure damage risk!")
+            st.write("• Use hurricane rated mounting")
+            st.write("• Reduce tilt to <15°")
+            st.write("• Add wind deflectors")
+        elif wind > 50:
+            st.warning("HIGH: 50-80 km/h - Strong winds")
+            st.write("• Cross bracing required")
+            st.write("• Check bolts monthly")
+        elif wind > 30:
+            st.info("MODERATE: 30-50 km/h")
+        else:
+            st.success("LOW: <30 km/h - Safe")        
 with tabs[11]:
     st.markdown("<span class='info-label'>STRUCTURE & MATERIAL SPEC</span>", unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)
