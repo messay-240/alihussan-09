@@ -590,7 +590,6 @@ with tabs[11]:
 
 with tabs[12]:
     st.markdown("<span class='info-label'>EXPORT REPORT</span>", unsafe_allow_html=True)
-
     df = pd.DataFrame({"Hour": hours, "Gen_kW": gen_24, "Load_kW": load_24, "Export_kW": export_24, "Battery_kWh": soc})
     csv = df.to_csv(index=False)
 
@@ -599,26 +598,22 @@ with tabs[12]:
         st.download_button("📊 Download CSV", csv, file_name=f"SolarX_{country}.csv")
 
     with c2:
-        if enable_export and PDF_ENABLED and FPDF:
-            def create_pdf():
-                pdf = FPDF()
-                pdf.add_page()
-                pdf.set_font('Arial', 'B', 16)
-                pdf.cell(0, 10, f'Solar Report - {country}', 0, 1, 'C')
-                pdf.set_font('Arial', '', 12)
-                pdf.cell(0, 10, f'System Size: {sys_size:.2f} kWp', 0, 1)
-                pdf.cell(0, 10, f'Daily Gen: {sum(gen_24):.1f} kWh', 0, 1)
-                pdf.cell(0, 10, f'Panel: {panel_type}', 0, 1)
-                pdf.cell(0, 10, f'Inverter: {inverter_type}', 0, 1)
-                pdf.cell(0, 10, f'Wind: {wind} km/h - {threat_msg}', 0, 1)
-                return pdf.output(dest='S').encode('latin1')
+        if enable_export:
+            if PDF_ENABLED and FPDF:
+                def create_pdf():
+                    pdf = FPDF()
+                    pdf.add_page()
+                    pdf.set_font('Arial', 'B', 16)
+                    pdf.cell(0, 10, f'Solar Report - {country}', 0, 1, 'C')
+                    pdf.set_font('Arial', '', 12)
+                    pdf.cell(0, 10, f'System Size: {sys_size:.2f} kWp', 0, 1)
+                    pdf.cell(0, 10, f'Wind: {wind} km/h - {threat_msg}', 0, 1)
+                    return pdf.output(dest='S').encode('latin1')
 
-            pdf_data = create_pdf()
-            st.download_button("📄 Download PDF Report", pdf_data, file_name=f"SolarX_{country}.pdf", mime='application/pdf')
-
-        elif enable_export and not PDF_ENABLED:
-            st.info("PDF disabled. Add 'fpdf2' in requirements.txt")
-
+                pdf_data = create_pdf()
+                st.download_button("📄 Download PDF Report", pdf_data, file_name=f"SolarX_{country}.pdf", mime='application/pdf')
+            else:
+                st.info("PDF disabled. Add 'fpdf2' in requirements.txt & Reboot app")
 with tabs[13]:
     df = pd.DataFrame({"Hour": hours, "Gen_kW": gen_24, "Load_kW": load_24, "Export_kW": export_24, "Battery_kWh": soc})
     csv = df.to_csv(index=False)
