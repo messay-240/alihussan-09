@@ -356,13 +356,17 @@ with st.sidebar:
 
     st.divider()
 
-with st.expander("🔐 Weather & Export Settings", expanded=False):
-    password = st.text_input("Weather API Password", type="password", value="solar2026", key="pwd_input")
-    use_live_weather = st.checkbox("Use Live Weather API + Location", value=False, key="live_weather_chk")
-    enable_export = st.checkbox("Enable PDF Report", value=True, key="enable_pdf")
-    st.caption("PDF report enable karo to Tab 14 me download button aayega")
+with st.sidebar:
+    st.title("⚡ SolarX Pro")
+    country = st.selectbox("🌍 Country", sorted(db.keys()))
+    country_data = list(db[country]) + [None] * 15
+    c_lat, c_curr, c_sale, c_buy, esg_rating, labor_risk, sourcing, avg_ghi, elec_access, grid_v, grid_f, wind_kmh_db, wind_zone = country_data[:13]
 
-st.divider()
+    st.divider()
+    st.markdown("### 🔐 Live Weather Access")
+    password = st.text_input("Password", type="password", value="")
+    use_live_weather = st.checkbox("🌐 Live Weather + Map ON", value=False)
+    LIVE_PASSWORD = "solar2026" # YE PASSWORD CHANGE KAR SAKTE HO
 
 # --- INPUTS ---
 col1, col2, col3 = st.columns(3)
@@ -563,21 +567,106 @@ with tabs[3]:
         st.info("Grid-Tied System - No Battery")
 
 with tabs[4]:
-    st.markdown("<span class='info-label'>ELECTRICAL DESIGN</span>", unsafe_allow_html=True)
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        st.metric("VOC String", f"{voc_string:.1f} V")
-        st.metric("ISC String", f"{isc_string:.1f} A")
-    with c2:
-        st.metric("DC Current", f"{current_dc:.1f} A")
-        st.metric("Cable Size", f"{cable_size} mm²")
-    with c3:
-        st.metric("VD %", f"{vd_percent:.2f}%")
-        if vd_percent > 3:
-            st.error("⚠️ VD > 3% - Increase cable")
-        else:
-            st.success("✅ VD OK")
+    st.markdown("<span class='info-label'>🌤️ LIVE WEATHER + 7 DIN FORECAST + MAP</span>", unsafe_allow_html=True)
 
+    location_name = country
+    lat, lon = c_lat, 70.0 # default Pakistan lon
+    wind = wind_kmh_db
+    cloud = 20
+    temp_ambient = 28
+
+    if use_live_weather and password == LIVE_PASSWORD and GEO_ENABLED:
+        geolocator = Nominatim(user_agent="solarx_app")
+        location = geolocator.geocode(country)
+
+        if location:
+            lat, lon = location.latitude, location.longitude
+            location_name = location.address
+            week_weather, hourly_data = get_7day_weather(lat, lon)
+
+            if week_weather:
+                st.success(f"✅ LIVE CONNECTED: {location_name}")
+
+                # GOOGLE MAP
+                col_map, col_data = st.columns([1, 1])
+                with col_map:
+                    st.markdown("**📍 Your Location on Map**")
+                    m = folium.Map(location=[lat, lon], zoom_start=10)
+                    folium.Marker([lat, lon], popup=location_name, icon=folium.Icon(color='red', icon='bolt')).add_to(m)
+                    st_folium(m, height=300, width=400)
+
+                with col_data:
+                    st.metric("Latitude", f"{lat:.4f}°")
+                    st.metric("Longitude", f"{lon:.4f}°")
+                    st.metric("Current Wind", f"{week_weather[0]['wind_max']:.1f} km/h")
+
+                # 7 DIN KA GRAPH
+                dates = [w['date'] for w in week_weather]
+                temp_max = [w['temp_max'] for w in week_weather]
+                temp_min = [w['temp_min'] for w in week_weather]
+                wind_max = [w['wind_max'] for w in week_weather]
+                cloud = [w['cloud'] for w in week_weather]
+
+                fig = go.Figure()
+                fig.add_trace(go.Bar(x=dates, y=temp_max, name="Max Temp °C", marker_color='#ef4444'))
+                fig.add_trace(go.Bar(x=dates, y=temp_min, name="Min Temp °C", marker_color='#3b82f6'))
+                fig.add_trace(go.Scatter(x=dates, y=wind_max, name="Wind km/h", yaxis='y2', line=dict(color='#f59e0b', width=3)))
+                fig.update_layout(
+                    title="7 Din Ka Weather Forecast",
+                    yaxis=dict(title="Temperature °C"),
+                    yaxis2=dict(title="Wind km/h", overlaying='y', side='right'),
+                    height=400, barmode='group', hovermode='x unified'
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
+                # TABLE
+                df_week = pd.DataFrame({
+                    "Date": dates,
+                    "Max °C": [round(t, 1) for t in temp_max],
+                    "Min °C": [round(t, 1) for t in temp_min],
+                    "Wind km/h": [round(w, 1) for w in wind_max],
+                    "Cloud %": cloud,
+                    "Risk": ["🔴 Extreme" if w>80 else "🟠 High" if w>50 else "🟢 Safe" for w in wind_max]
+                })
+                st.dataframe(df_week, use_container_width=True)
+
+                # WEEKLY GENERATION ESTIMATE
+                avg_wind = np.mean(wind_max)
+                avg_cloud = np.mean(cloud)
+                weather_factor = 1 - avg_cloud*0.008 + avg_wind*0.0003
+                weekly_gen = daily_yield * 7 * weather_factor
+
+                st.divider()
+                k1, k2, k3 = st.columns(3)
+                k1.metric("7 Din Avg Wind", f"{avg_wind:.1f} km/h")
+                k2.metric("7 Din Avg Cloud", f"{avg_cloud:.0f}%")
+                k3.metric("7 Din Est Generation", f"{weekly_gen:.1f} kWh")
+
+                # HOURLY TODAY
+                st.markdown("**Aaj Ka Hourly Weather**")
+                today_hours = hourly_data['time'][:24]
+                today_temp = hourly_data['temperature_2m'][:24]
+                today_wind = [w*3.6 for w in hourly_data['wind_speed_10m'][:24]]
+
+                fig2 = go.Figure()
+                fig2.add_trace(go.Scatter(x=today_hours, y=today_temp, name="Temp °C", line=dict(color='red')))
+                fig2.add_trace(go.Scatter(x=today_hours, y=today_wind, name="Wind km/h", yaxis='y2', line=dict(color='orange')))
+                st.plotly_chart(fig2, use_container_width=True)
+
+            else:
+                st.error("⚠️ Weather data fetch nahi hua")
+        else:
+            st.warning("Location nahi mili")
+
+    elif use_live_weather and password!= LIVE_PASSWORD:
+        st.error("❌ Password galat hai. Sahi password: `solar2026`")
+
+    else:
+        st.info("💡 Live Weather OFF hai. Manual data use ho raha hai.")
+        st.metric("Country", country)
+        st.metric("Base Daily Gen", f"{daily_yield:.1f} kWh")
+        st.metric("Base Weekly Gen", f"{daily_yield*7:.1f} kWh")
+        st.warning("Live weather + Map ke liye Sidebar se ON karo + Password dalo")
 with tabs[5]:
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Gross Cost", f"{gross_cost:,.0f} {c_curr}")
