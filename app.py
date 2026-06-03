@@ -241,8 +241,6 @@ with st.sidebar:
     st.divider()
 
     st.divider()
-
-    # 👇 YE SECTION 4 SPACE INDENT ME HAI - TAB MAT DABANA
     with st.expander("🔐 Weather & Export Settings", expanded=False):
 
         # 4 space
@@ -575,7 +573,7 @@ with tabs[10]:
         if use_live_weather and not GEO_ENABLED:
             st.warning("geopy not installed. Add 'geopy' in requirements.txt")
         cloud = st.slider("Cloud Cover %", 0, 100, 20, key="cloud_manual_3")
-        wind = st.slider("Wind km/h", 0, 100, 15, key="wind_manual_3")[10]
+        wind = st.slider("Wind km/h", 0, 100, 15, key="wind_manual_3")
 
     col1, col2 = st.columns(2)
 
