@@ -286,25 +286,28 @@ grid_v = country_data[9]
 grid_f = country_data[10]
 wind_kmh = country_data[11] if len(country_data) > 11 else 15
 wind_zone = country_data[12] if len(country_data) > 12 else "Normal"
-    with st.expander("🔌 Inverter System"):
+
+with st.expander("🔌 Inverter System"):
         inverter_type = st.selectbox("Inverter Type", list(inverter_db.keys()))
         inv_eff, inv_bonus, inv_cost, inv_note = inverter_db[inverter_type]
         mppt_count = st.number_input("MPPT Channels", value=2, min_value=1)
         ac_output = st.selectbox("AC Output", ["Single Phase", "Three Phase"])
 
-    with st.expander("🔋 Battery"):
+with st.expander("🔋 Battery"):
         battery_type = st.selectbox("Battery Type", list(battery_db.keys()))
         b_eff, b_cycles, b_cost, b_degrade, b_voltage, b_note = battery_db[battery_type]
         has_batt = battery_type!= "No Battery"
         b_cap = st.number_input("Battery kWh", value=20.0) if has_batt else 0
         dod = st.slider("DoD %", 50, 95, 85) if has_batt else 0
 
-    with st.expander("🏠 Load & Net Metering"):
+    
+with st.expander("🏠 Load & Net Metering"):
         h_load = st.number_input("Daily Load kWh", value=55.0)
         net_metering = st.checkbox("Net Metering", value=True)
         subsidy = st.slider("Subsidy %", 0, 50, 30 if country=="Pakistan" else 0)
 
-    with st.expander("🌤️ Environment"):
+    
+with st.expander("🌤️ Environment"):
         sun_h = st.slider("Peak Sun Hours", 3.0, 8.5, float(avg_ghi))
         sys_loss = st.slider("System Losses %", 8, 30, 14)
         soiling = st.slider("Soiling %", 0, 20, 5)
@@ -312,7 +315,8 @@ wind_zone = country_data[12] if len(country_data) > 12 else "Normal"
         wire_length = st.number_input("Wire Length m", value=50)
         cable_size = st.selectbox("DC Cable mm²", [4, 6, 10, 16, 25])
 
-    with st.expander("💹 Financial"):
+    
+with st.expander("💹 Financial"):
         buy_rate = st.number_input(f"Buy Rate {c_curr}", value=float(c_buy))
         sell_rate = st.number_input(f"Sell Rate {c_curr}", value=float(c_sale))
         tax_val = st.slider("Tax %", 0, 30, 17)
