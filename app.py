@@ -222,48 +222,6 @@ structure_db = {
 
 # --- SIDEBAR --
 with st.sidebar:
-    st.title("⚡ Solar Power Estimator")
-
-    # Country select - ye sab se pehle ho
-    country = st.selectbox("🌍 Country - 120+ Options", sorted(db.keys()), key="country_select")
-    c_lat, c_curr, c_sale, c_buy, esg_rating, labor_risk, sourcing, avg_ghi, elec_access, grid_v, grid_f = db[country]
-
-    st.divider()
-
-    # 👇 YE PURA SECTION PASTE KARO
-    with st.expander("🔐 Weather & Export Settings", expanded=False):
-
-        # 1. Weather API Password
-        password = st.text_input(
-            "Weather API Password",
-            type="password",
-            value="solar2026",
-            key="pwd_input",
-            help="Password for live weather API"
-        )
-
-        # 2. Live Weather Checkbox
-        use_live_weather = st.checkbox(
-            "Use Live Weather API",
-            value=False,
-            key="live_weather_chk",
-            help="Turn on for real-time wind + cloud data"
-        )
-
-        # 3. PDF Export Checkbox - YE WALA TUM MANG RAHE HO
-        enable_export = st.checkbox(
-            "Enable PDF Report",
-            value=True,
-            key="enable_pdf",
-            help="Turn on to show PDF download button in Export tab"
-        )
-
-    st.divider()
-    # 👆 SECTION KHATAM
-
-    # Baaki sidebar sections yahan se shuru...
-    # Solar Array, Inverter, Battery, Load etc
-with st.sidebar:
     st.title("⚡ Solar Power Estemaiter")
     country = st.selectbox("🌍 Country - 120+ Options", sorted(db.keys()))
     c_lat, c_curr, c_sale, c_buy, esg_rating, labor_risk, sourcing, avg_ghi, elec_access, grid_v, grid_f, wind_kmh, wind_zone = db[country]
