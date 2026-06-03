@@ -626,40 +626,43 @@ with tabs[12]:
             if PDF_ENABLED and FPDF:
 
                 # PDF banane ka function
-                def create_pdf():
-                    pdf = FPDF()
-                    pdf.add_page()
-                    pdf.set_font('Arial', 'B', 16)
+               def create_pdf():
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font('Arial', 'B', 16)
 
-                    # Header
-                    pdf.cell(0, 10, f'Solar Report - {country}', 0, 1, 'C')
-                    pdf.ln(5)
+    # Helper function - har text ko safe bana dega
+    def safe_text(txt):
+        return str(txt).encode('ascii', 'ignore').decode('ascii')
 
-                    pdf.set_font('Arial', '', 12)
-                    pdf.cell(0, 8, f'Date: {datetime.now().strftime("%Y-%m-%d %H:%M")}', 0, 1)
-                    pdf.ln(3)
+    # Header
+    pdf.cell(0, 10, safe_text(f'Solar Report - {country}'), 0, 1, 'C')
+    pdf.ln(5)
 
-                    # System Details
-                    pdf.cell(0, 8, f'System Size: {sys_size:.2f} kWp', 0, 1)
-                    pdf.cell(0, 8, f'Panel Type: {panel_type}', 0, 1)
-                    pdf.cell(0, 8, f'Inverter Type: {inverter_type}', 0, 1)
-                    pdf.cell(0, 8, f'Battery Type: {battery_type if has_batt else "No Battery"}', 0, 1)
-                    pdf.ln(3)
+    pdf.set_font('Arial', '', 12)
+    pdf.cell(0, 8, safe_text(f'Date: {datetime.now().strftime("%Y-%m-%d %H:%M")}'), 0, 1)
+    pdf.ln(3)
 
-                    # Generation Details
-                    pdf.cell(0, 8, f'Daily Generation: {sum(gen_24):.2f} kWh', 0, 1)
-                    pdf.cell(0, 8, f'Daily Load: {h_load:.2f} kWh', 0, 1)
-                    pdf.cell(0, 8, f'Self Consumption: {(1-sum(import_24)/h_load)*100:.1f}%', 0, 1)
-                    pdf.ln(3)
+    # System Details
+    pdf.cell(0, 8, safe_text(f'System Size: {sys_size:.2f} kWp'), 0, 1)
+    pdf.cell(0, 8, safe_text(f'Panel Type: {panel_type}'), 0, 1)
+    pdf.cell(0, 8, safe_text(f'Inverter Type: {inverter_type}'), 0, 1)
+    pdf.cell(0, 8, safe_text(f'Battery Type: {battery_type if has_batt else "No Battery"}'), 0, 1)
+    pdf.ln(3)
 
-                    # Wind + Weather - emoji hata diye
-                    clean_threat = threat_msg.replace("WARNING:", "").replace("OK:", "").replace("Note:", "").strip()
-                    pdf.cell(0, 8, f'Wind Speed: {wind} km/h', 0, 1)
-                    pdf.cell(0, 8, f'Wind Status: {clean_threat}', 0, 1)
-                    pdf.cell(0, 8, f'Cloud Cover: {cloud}%', 0, 1)
+    # Generation Details
+    pdf.cell(0, 8, safe_text(f'Daily Generation: {sum(gen_24):.2f} kWh'), 0, 1)
+    pdf.cell(0, 8, safe_text(f'Daily Load: {h_load:.2f} kWh'), 0, 1)
+    pdf.cell(0, 8, safe_text(f'Self Consumption: {(1-sum(import_24)/h_load)*100:.1f}%'), 0, 1)
+    pdf.ln(3)
 
-                    return pdf.output(dest='S').encode('latin-1', 'replace')
+    # Wind + Weather - sab clean
+    clean_threat = safe_text(threat_msg)
+    pdf.cell(0, 8, safe_text(f'Wind Speed: {wind} km/h'), 0, 1)
+    pdf.cell(0, 8, safe_text(f'Wind Status: {clean_threat}'), 0, 1)
+    pdf.cell(0, 8, safe_text(f'Cloud Cover: {cloud}%'), 0, 1)
 
+    return pdf.output(dest='S')
                 # PDF data banao
                 pdf_data = create_pdf()
 
