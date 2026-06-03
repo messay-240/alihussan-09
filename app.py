@@ -1,3 +1,9 @@
+try:
+    from fpdf import FPDF
+    PDF_ENABLED = True
+except:
+    PDF_ENABLED = False
+    FPDF = None  
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -590,54 +596,88 @@ with tabs[11]:
 
 with tabs[12]:
     st.markdown("<span class='info-label'>EXPORT REPORT</span>", unsafe_allow_html=True)
-    df = pd.DataFrame({"Hour": hours, "Gen_kW": gen_24, "Load_kW": load_24, "Export_kW": export_24, "Battery_kWh": soc})
-    csv = df.to_csv(index=False)
+
+    # DataFrame banao
+    df = pd.DataFrame({
+        "Hour": hours,
+        "Gen_kW": [round(x, 3) for x in gen_24],
+        "Load_kW": [round(x, 3) for x in load_24],
+        "Export_kW": [round(x, 3) for x in export_24],
+        "Battery_kWh": [round(x, 3) for x in soc]
+    })
+
+    # CSV ready karo
+    csv = df.to_csv(index=False).encode('utf-8')
 
     c1, c2 = st.columns(2)
+
     with c1:
-        st.download_button("📊 Download CSV", csv, file_name=f"SolarX_{country}.csv")
+        st.download_button(
+            label="📊 Download CSV",
+            data=csv,
+            file_name=f"SolarX_{country}_{datetime.now().strftime('%Y%m%d')}.csv",
+            mime="text/csv",
+            key="csv_download_btn"
+        )
 
     with c2:
-        def create_pdf():
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font('Arial', 'B', 16)
-    
-    # Emoji + Urdu hata do, sirf English + numbers rakho
-    pdf.cell(0, 10, f'Solar Report - {country}', 0, 1, 'C')
-    pdf.set_font('Arial', '', 12)
-    pdf.ln(5)
-    
-    pdf.cell(0, 10, f'System Size: {sys_size:.2f} kWp', 0, 1)
-    pdf.cell(0, 10, f'Daily Generation: {sum(gen_24):.1f} kWh', 0, 1)
-    pdf.cell(0, 10, f'Panel Type: {panel_type}', 0, 1)
-    pdf.cell(0, 10, f'Inverter Type: {inverter_type}', 0, 1)
-    pdf.cell(0, 10, f'Battery: {battery_type if has_batt else "None"}', 0, 1)
-    
-    # Wind threat me emoji hata do
-    clean_threat = threat_msg.replace("⚠️", "WARNING:").replace("✅", "OK:").replace("⚡", "Note:")
-    pdf.cell(0, 10, f'Wind Speed: {wind} km/h - {clean_threat}', 0, 1)
-    
-    pdf.ln(5)
-    pdf.cell(0, 10, f'Country: {country}, Grid: {grid_v}V {grid_f}Hz', 0, 1)
-    
-    return pdf.output(dest='S').encode('latin-1', 'replace')
+        # PDF sirf tab bane jab enable ho aur library install ho
         if enable_export:
             if PDF_ENABLED and FPDF:
+
+                # PDF banane ka function
                 def create_pdf():
                     pdf = FPDF()
                     pdf.add_page()
                     pdf.set_font('Arial', 'B', 16)
-                    pdf.cell(0, 10, f'Solar Report - {country}', 0, 1, 'C')
-                    pdf.set_font('Arial', '', 12)
-                    pdf.cell(0, 10, f'System Size: {sys_size:.2f} kWp', 0, 1)
-                    pdf.cell(0, 10, f'Wind: {wind} km/h - {threat_msg}', 0, 1)
-                    return pdf.output(dest='S').encode('latin1')
 
+                    # Header
+                    pdf.cell(0, 10, f'Solar Report - {country}', 0, 1, 'C')
+                    pdf.ln(5)
+
+                    pdf.set_font('Arial', '', 12)
+                    pdf.cell(0, 8, f'Date: {datetime.now().strftime("%Y-%m-%d %H:%M")}', 0, 1)
+                    pdf.ln(3)
+
+                    # System Details
+                    pdf.cell(0, 8, f'System Size: {sys_size:.2f} kWp', 0, 1)
+                    pdf.cell(0, 8, f'Panel Type: {panel_type}', 0, 1)
+                    pdf.cell(0, 8, f'Inverter Type: {inverter_type}', 0, 1)
+                    pdf.cell(0, 8, f'Battery Type: {battery_type if has_batt else "No Battery"}', 0, 1)
+                    pdf.ln(3)
+
+                    # Generation Details
+                    pdf.cell(0, 8, f'Daily Generation: {sum(gen_24):.2f} kWh', 0, 1)
+                    pdf.cell(0, 8, f'Daily Load: {h_load:.2f} kWh', 0, 1)
+                    pdf.cell(0, 8, f'Self Consumption: {(1-sum(import_24)/h_load)*100:.1f}%', 0, 1)
+                    pdf.ln(3)
+
+                    # Wind + Weather - emoji hata diye
+                    clean_threat = threat_msg.replace("WARNING:", "").replace("OK:", "").replace("Note:", "").strip()
+                    pdf.cell(0, 8, f'Wind Speed: {wind} km/h', 0, 1)
+                    pdf.cell(0, 8, f'Wind Status: {clean_threat}', 0, 1)
+                    pdf.cell(0, 8, f'Cloud Cover: {cloud}%', 0, 1)
+
+                    return pdf.output(dest='S').encode('latin-1', 'replace')
+
+                # PDF data banao
                 pdf_data = create_pdf()
-                st.download_button("📄 Download PDF Report", pdf_data, file_name=f"SolarX_{country}.pdf", mime='application/pdf')
+
+                # PDF download button
+                st.download_button(
+                    label="📄 Download PDF Report",
+                    data=pdf_data,
+                    file_name=f"SolarX_{country}_{datetime.now().strftime('%Y%m%d')}.pdf",
+                    mime="application/pdf",
+                    key="pdf_download_btn"
+                )
             else:
-                st.info("PDF disabled. Add 'fpdf2' in requirements.txt & Reboot app")
+                st.info("PDF disabled. Add 'fpdf2' in requirements.txt and Reboot app")
+
+    st.divider()
+
+    # Data table show karo
+    st.dataframe(df, height=400, use_container_width=True)
 with tabs[13]:
     df = pd.DataFrame({"Hour": hours, "Gen_kW": gen_24, "Load_kW": load_24, "Export_kW": export_24, "Battery_kWh": soc})
     csv = df.to_csv(index=False)
