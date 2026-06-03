@@ -832,6 +832,11 @@ with tabs[12]:
         st.info("💡 Live OFF hai. Sidebar se ON + Password dalo")
         st.metric("Country", country)
         st.metric("Weekly Gen", f"{daily_yield*7:.1f} kWh")
+        enable_export = st.checkbox("📄 PDF Export", value=False)
+        # YE PURA BLOCK DELETE KAR DO LINE 853 SE
+        if enable_export:
+           pdf_data = ...
+           st.download_button(...)
 with tabs[13]:
     st.markdown("<span class='info-label'>📤 EXPORT REPORT - CSV + PDF</span>", unsafe_allow_html=True)
     df = pd.DataFrame({
