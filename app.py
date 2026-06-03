@@ -1,18 +1,17 @@
-import pandas as pd
-from datetime import datetime
-
-try:
-    from fpdf import FPDF
-    PDF_ENABLED = True
-except:
-    PDF_ENABLED = False
-    FPDF = None
 import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-from datetime import datetime
 import requests
+from datetime import datetime
+from geopy.geocoders import Nominatim
+
+try:
+    from fpdf import FPDF
+    PDF_ENABLED = True
+except ImportError:
+    PDF_ENABLED = False
+    FPDF = None
 
 # Safe imports - DEFAULT VALUE PEHLE SET KARO
 GEO_ENABLED = False
@@ -243,46 +242,50 @@ with st.sidebar:
 
     st.divider()
 
-    st.divider()
-    with st.expander("🔐 Weather & Export Settings", expanded=False):
+with st.expander("🔐 Weather & Export Settings", expanded=False):
+    # 4 space indent andar
+    password = st.text_input(
+        "Weather API Password",
+        type="password",
+        value="solar2026",
+        key="pwd_input"
+    )
 
-        # 4 space
-        password = st.text_input(
-            "Weather API Password",
-            type="password",
-            value="solar2026",
-            key="pwd_input"
-        )
+    # 4 space indent andar
+    use_live_weather = st.checkbox(
+        "Use Live Weather API",
+        value=False,
+        key="live_weather_chk"
+    )
 
-        # 4 space
-        use_live_weather = st.checkbox(
-            "Use Live Weather API",
-            value=False,
-            key="live_weather_chk"
-        )
+    # 4 space indent andar - YE LINE 514 WALI HAI
+    enable_export = st.checkbox(
+        "Enable PDF Report",
+        value=True,
+        key="enable_pdf"
+    )
+    st.caption("PDF report enable karo to Tab 12 me download button aayega")
 
-        # 4 space - YE LINE 514 WALI HAI
-        enable_export = st.checkbox(
-            "Enable PDF Report",
-            value=True,
-            key="enable_pdf"
-        )
+st.divider()
+# 👆 SECTION KHATAM
 
-    st.divider()
-    # 👆 SECTION KHATAM
-    
-    country = st.selectbox("🌍 Country - 120+ Options", sorted(db.keys()))
-    c_lat, c_curr, c_sale, c_buy, esg_rating, labor_risk, sourcing, avg_ghi, elec_access, grid_v, grid_f, wind_kmh, wind_zone = db[country]
+country = st.selectbox("🌍 Country - 120+ Options", sorted(db.keys()), key="country_select")
 
-    with st.expander("📐 Solar Array", expanded=True):
-        panel_type = st.selectbox("Panel Technology", list(panel_db.keys()))
-        p_eff, p_degrade, p_cost, p_temp, voc, isc, p_note = panel_db[panel_type]
-        tilt = st.slider("Tilt °", 0, 90, int(abs(c_lat)))
-        azimuth = st.slider("Azimuth °", -180, 180, 0)
-        p_watt = st.number_input("Panel Wp", value=585)
-        p_qty = st.number_input("Panel Qty", value=24)
-        strings = st.number_input("Strings", value=2, min_value=1)
-        panels_per_string = p_qty // strings if strings > 0 else p_qty
+# EDIT: SAFE UNPACKING - ValueError khatam
+country_data = list(db[country]) + [None] * 20 # 20 tak pad kar do
+c_lat = country_data[0]
+c_curr = country_data[1]
+c_sale = country_data[2]
+c_buy = country_data[3]
+esg_rating = country_data[4]
+labor_risk = country_data[5]
+sourcing = country_data[6]
+avg_ghi = country_data[7]
+elec_access = country_data[8]
+grid_v = country_data[9]
+grid_f = country_data[10]
+wind_kmh = country_data[11] if len(country_data) > 11 else 15
+wind_zone = country_data[12] if len(country_data) > 12 else "Normal"
 
     with st.expander("🔌 Inverter System"):
         inverter_type = st.selectbox("Inverter Type", list(inverter_db.keys()))
@@ -625,17 +628,18 @@ with tabs[11]:
         st.error(f"⚠️ WARNING: Selected tilt {tilt}° exceeds max {struct['tilt_max']}° for {wind_zone} wind zone. Reduce tilt or upgrade structure!")
 
 with tabs[12]:
-    st.markdown("<span class='info-label'>📤 EXPORT REPORT</span>", unsafe_allow_html=True)
-    st.write("Download your complete solar analysis as CSV or PDF Report")
+    st.markdown("<span class='info-label'>📤 EXPORT REPORT - CSV + PDF</span>", unsafe_allow_html=True)
+    st.write("Download complete solar analysis data and detailed PDF report")
 
-    # DataFrame banao - sab data 1 jagah
+    # DataFrame banao - sab 24 hours ka data
     df = pd.DataFrame({
         "Hour": hours,
         "Generation_kW": [round(x, 3) for x in gen_24],
         "Load_kW": [round(x, 3) for x in load_24],
         "Export_kW": [round(x, 3) for x in export_24],
         "Import_kW": [round(x, 3) for x in import_24],
-        "Battery_SOC_kWh": [round(x, 3) for x in soc]
+        "Battery_SOC_kWh": [round(x, 3) for x in soc],
+        "Battery_%": [round((x/batt_cap)*100, 1) if has_batt and batt_cap > 0 else 0 for x in soc]
     })
 
     # CSV ready - UTF-8 bytes me
@@ -644,101 +648,119 @@ with tabs[12]:
     st.divider()
     col1, col2 = st.columns(2)
 
-    # CSV DOWNLOAD BUTTON
+    # 1. CSV DOWNLOAD BUTTON
     with col1:
         st.download_button(
             label="📥 Download CSV Data",
             data=csv,
-            file_name=f"SolarX_{country}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+            file_name=f"SolarX_Data_{country}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
             mime="text/csv",
-            key="csv_download_btn",
-            help="Download hourly generation, load, export, import data"
+            key="csv_download_btn_final",
+            help="24 hours complete data: Gen, Load, Export, Import, Battery SOC"
         )
 
-    # PDF DOWNLOAD BUTTON - sirf enable ho to
+    # 2. PDF DOWNLOAD BUTTON
     with col2:
         if enable_export:
             if PDF_ENABLED and FPDF:
 
-                # PDF BANANE KA FUNCTION
+                # PDF BANANE KA FUNCTION - 100% BYTES GUARANTEE
                 def create_pdf():
                     pdf = FPDF()
                     pdf.add_page()
                     pdf.set_font('Arial', 'B', 18)
 
-                    # Helper - Urdu/Arabic characters ko safe bana dega
+                    # Helper - Unicode safe text
                     def safe_text(txt):
                         return str(txt).encode('ascii', 'ignore').decode('ascii')
 
-                    # TITLE
-                    pdf.cell(0, 12, safe_text(f'SolarX Pro Report'), 0, 1, 'C')
-                    pdf.set_font('Arial', '', 12)
-                    pdf.cell(0, 8, safe_text(f'Country: {country}'), 0, 1, 'C')
-                    pdf.cell(0, 8, safe_text(f'Generated: {datetime.now().strftime("%Y-%m-%d %H:%M")}'), 0, 1, 'C')
+                    # HEADER
+                    pdf.cell(0, 12, safe_text('SolarX Pro - Solar Analysis Report'), 0, 1, 'C')
+                    pdf.set_font('Arial', '', 11)
+                    pdf.cell(0, 8, safe_text(f'Country: {country} | Generated: {datetime.now().strftime("%Y-%m-%d %H:%M")}'), 0, 1, 'C')
                     pdf.ln(8)
 
-                    # SECTION 1: SYSTEM DETAILS
+                    # SECTION 1: SYSTEM CONFIG
                     pdf.set_font('Arial', 'B', 14)
-                    pdf.cell(0, 10, safe_text('1. SYSTEM CONFIGURATION'), 0, 1)
+                    pdf.cell(0, 10, safe_text('SECTION 1: SYSTEM CONFIGURATION'), 0, 1)
                     pdf.set_font('Arial', '', 11)
                     pdf.cell(0, 7, safe_text(f'System Size: {sys_size:.2f} kWp'), 0, 1)
                     pdf.cell(0, 7, safe_text(f'Panel Type: {panel_type}'), 0, 1)
                     pdf.cell(0, 7, safe_text(f'Inverter Type: {inverter_type}'), 0, 1)
-                    pdf.cell(0, 7, safe_text(f'Battery: {battery_type if has_batt else "No Battery"}'), 0, 1)
-                    pdf.cell(0, 7, safe_text(f'Grid Voltage: {grid_v}V / {grid_f}Hz'), 0, 1)
+                    pdf.cell(0, 7, safe_text(f'Battery Type: {battery_type if has_batt else "No Battery"}'), 0, 1)
+                    if has_batt:
+                        pdf.cell(0, 7, safe_text(f'Battery Capacity: {batt_cap:.1f} kWh'), 0, 1)
+                    pdf.cell(0, 7, safe_text(f'Grid: {grid_v}V / {grid_f}Hz'), 0, 1)
                     pdf.ln(5)
 
                     # SECTION 2: GENERATION SUMMARY
                     pdf.set_font('Arial', 'B', 14)
-                    pdf.cell(0, 10, safe_text('2. GENERATION SUMMARY'), 0, 1)
+                    pdf.cell(0, 10, safe_text('SECTION 2: GENERATION SUMMARY'), 0, 1)
                     pdf.set_font('Arial', '', 11)
                     total_gen = sum(gen_24)
                     total_load = h_load
                     total_export = sum(export_24)
                     total_import = sum(import_24)
+                    peak_gen = max(gen_24)
 
-                    pdf.cell(0, 7, safe_text(f'Daily Generation: {total_gen:.2f} kWh'), 0, 1)
-                    pdf.cell(0, 7, safe_text(f'Daily Load: {total_load:.2f} kWh'), 0, 1)
-                    pdf.cell(0, 7, safe_text(f'Total Export to Grid: {total_export:.2f} kWh'), 0, 1)
-                    pdf.cell(0, 7, safe_text(f'Total Import from Grid: {total_import:.2f} kWh'), 0, 1)
+                    pdf.cell(0, 7, safe_text(f'Total Daily Generation: {total_gen:.2f} kWh'), 0, 1)
+                    pdf.cell(0, 7, safe_text(f'Peak Generation: {peak_gen:.2f} kW'), 0, 1)
+                    pdf.cell(0, 7, safe_text(f'Total Daily Load: {total_load:.2f} kWh'), 0, 1)
+                    pdf.cell(0, 7, safe_text(f'Export to Grid: {total_export:.2f} kWh'), 0, 1)
+                    pdf.cell(0, 7, safe_text(f'Import from Grid: {total_import:.2f} kWh'), 0, 1)
 
                     if total_load > 0:
                         self_cons = (1 - total_import/total_load) * 100
-                        pdf.cell(0, 7, safe_text(f'Self Consumption: {self_cons:.1f}%'), 0, 1)
+                        pdf.cell(0, 7, safe_text(f'Self Consumption Rate: {self_cons:.1f}%'), 0, 1)
+                        grid_dep = (total_import/total_load) * 100
+                        pdf.cell(0, 7, safe_text(f'Grid Dependency: {grid_dep:.1f}%'), 0, 1)
                     pdf.ln(5)
 
                     # SECTION 3: WEATHER & WIND
                     pdf.set_font('Arial', 'B', 14)
-                    pdf.cell(0, 10, safe_text('3. WEATHER CONDITIONS'), 0, 1)
+                    pdf.cell(0, 10, safe_text('SECTION 3: WEATHER CONDITIONS'), 0, 1)
                     pdf.set_font('Arial', '', 11)
                     weather_factor = 1 - cloud*0.008 + wind*0.0003
+                    adj_yield = daily_yield * weather_factor
+
                     pdf.cell(0, 7, safe_text(f'Cloud Cover: {cloud}%'), 0, 1)
                     pdf.cell(0, 7, safe_text(f'Wind Speed: {wind} km/h'), 0, 1)
                     pdf.cell(0, 7, safe_text(f'Wind Status: {threat_msg}'), 0, 1)
-                    pdf.cell(0, 7, safe_text(f'Weather Adjusted Yield: {daily_yield*weather_factor:.2f} kWh'), 0, 1)
+                    pdf.cell(0, 7, safe_text(f'Base Daily Yield: {daily_yield:.2f} kWh'), 0, 1)
+                    pdf.cell(0, 7, safe_text(f'Weather Adjusted Yield: {adj_yield:.2f} kWh'), 0, 1)
                     pdf.ln(5)
 
-                    # SECTION 4: ECONOMIC
+                    # SECTION 4: ECONOMIC ANALYSIS
                     pdf.set_font('Arial', 'B', 14)
-                    pdf.cell(0, 10, safe_text('4. ECONOMIC ANALYSIS'), 0, 1)
+                    pdf.cell(0, 10, safe_text('SECTION 4: ECONOMIC ANALYSIS'), 0, 1)
                     pdf.set_font('Arial', '', 11)
                     monthly_gen = total_gen * 30
+                    annual_gen = total_gen * 365
                     monthly_bill = total_load * 30 * c_buy
+                    annual_bill = monthly_bill * 12
                     monthly_saving = monthly_gen * c_sale
+                    annual_saving = monthly_saving * 12
+
                     pdf.cell(0, 7, safe_text(f'Monthly Generation: {monthly_gen:.1f} kWh'), 0, 1)
+                    pdf.cell(0, 7, safe_text(f'Annual Generation: {annual_gen:.0f} kWh'), 0, 1)
                     pdf.cell(0, 7, safe_text(f'Monthly Bill Without Solar: {c_curr} {monthly_bill:.0f}'), 0, 1)
+                    pdf.cell(0, 7, safe_text(f'Annual Bill Without Solar: {c_curr} {annual_bill:.0f}'), 0, 1)
                     pdf.cell(0, 7, safe_text(f'Monthly Saving: {c_curr} {monthly_saving:.0f}'), 0, 1)
+                    pdf.cell(0, 7, safe_text(f'Annual Saving: {c_curr} {annual_saving:.0f}'), 0, 1)
                     pdf.ln(8)
 
                     # FOOTER
-                    pdf.set_font('Arial', 'I', 9)
+                    pdf.set_font('Arial', 'I', 8)
                     pdf.cell(0, 6, safe_text('Generated by SolarX Pro - Advanced Solar Estimator'), 0, 1, 'C')
-                    pdf.cell(0, 6, safe_text('For professional use only'), 0, 1, 'C')
+                    pdf.cell(0, 6, safe_text('For professional planning only. Actual results may vary.'), 0, 1, 'C')
 
-                    # IMPORTANT: Naya fpdf2 direct bytes deta hai
-                    return pdf.output()
+                    # CRITICAL: FORCE BYTES - Streamlit error khatam
+                    pdf_bytes = pdf.output()
+                    if isinstance(pdf_bytes, str):
+                        pdf_bytes = pdf_bytes.encode('latin-1', 'replace')
+                    return pdf_bytes
 
-                # PDF DATA BANAO
+                # PDF DATA GENERATE KARO
                 pdf_data = create_pdf()
 
                 # PDF DOWNLOAD BUTTON
@@ -747,8 +769,8 @@ with tabs[12]:
                     data=pdf_data,
                     file_name=f"SolarX_Report_{country}_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
                     mime="application/pdf",
-                    key="pdf_download_btn",
-                    help="Download detailed PDF report with system + economic summary"
+                    key="pdf_download_btn_final",
+                    help="Detailed PDF with System, Generation, Weather, Economic sections"
                 )
             else:
                 st.warning("⚠️ PDF disabled. Add 'fpdf2' in requirements.txt and Reboot app")
@@ -756,10 +778,10 @@ with tabs[12]:
             st.info("💡 PDF disabled. Sidebar > Weather & Export Settings > Enable PDF Report on karo")
 
     st.divider()
-    st.markdown("**📊 Preview - Hourly Data Table**")
-    st.dataframe(df, height=400, use_container_width=True)
+    st.markdown("**📊 Preview - Hourly Data Table (First 24 Hours)**")
+    st.dataframe(df, height=350, use_container_width=True)
 
-    st.caption("Note: CSV me complete hourly data hai. PDF me summary + key metrics hain.")
+    st.success("✅ CSV me complete data hai. PDF me 4 detailed sections hain.")
 with tabs[13]:
     df = pd.DataFrame({"Hour": hours, "Gen_kW": gen_24, "Load_kW": load_24, "Export_kW": export_24, "Battery_kWh": soc})
     csv = df.to_csv(index=False)
