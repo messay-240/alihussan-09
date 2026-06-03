@@ -581,7 +581,7 @@ with tabs[12]:
         st.download_button("📊 Download CSV", csv, file_name=f"SolarX_{country}.csv")
 
     with c2:
-        if enable_export:
+        if enable_export and PDF_ENABLED and FPDF:
             def create_pdf():
                 pdf = FPDF()
                 pdf.add_page()
@@ -598,7 +598,8 @@ with tabs[12]:
             pdf_data = create_pdf()
             st.download_button("📄 Download PDF Report", pdf_data, file_name=f"SolarX_{country}.pdf", mime='application/pdf')
 
-    st.dataframe(df, height=400)
+        elif enable_export and not PDF_ENABLED:
+            st.info("PDF disabled. Add 'fpdf2' in requirements.txt")
 
 with tabs[13]:
     df = pd.DataFrame({"Hour": hours, "Gen_kW": gen_24, "Load_kW": load_24, "Export_kW": export_24, "Battery_kWh": soc})
