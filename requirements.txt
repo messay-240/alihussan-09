@@ -2,7 +2,7 @@ streamlit
 pandas
 numpy
 plotly
+geopy
 requests
-geopy==2.4.1
-fpdf2
-unidecode
+folium
+streamlit-folium
