@@ -511,7 +511,7 @@ with st.sidebar:
     with st.expander("🔐 Weather & Export Settings"):
         password = st.text_input("Weather API Password", type="password", value="solar2026")
         use_live_weather = st.checkbox("Use Live Weather API", value=False)
-        enable_export = st.checkbox("Enable PDF Report", value=True)
+       enable_export = st.checkbox("Enable PDF Report", value=True, key="enable_pdf")
 
 # Wind Threat Calculation
 def check_wind_threat(wind_speed, panel_type):
@@ -595,7 +595,7 @@ with tabs[11]:
         st.error(f"⚠️ WARNING: Selected tilt {tilt}° exceeds max {struct['tilt_max']}° for {wind_zone} wind zone. Reduce tilt or upgrade structure!")
 
 with tabs[12]:
-    st.markdown("<span class='info-label'>EXPORT REPORT</span>", unsafe_allow_html=True)
+    st.markdown("<span class='info-label'>📤 EXPORT REPORT</span>", unsafe_allow_html=True)
 
     # DataFrame banao
     df = pd.DataFrame({
@@ -606,14 +606,14 @@ with tabs[12]:
         "Battery_kWh": [round(x, 3) for x in soc]
     })
 
-    # CSV ready karo
+    # CSV ready karo - bytes me
     csv = df.to_csv(index=False).encode('utf-8')
 
     c1, c2 = st.columns(2)
 
     with c1:
         st.download_button(
-            label="Download CSV",
+            label="📥 Download CSV",
             data=csv,
             file_name=f"SolarX_{country}_{datetime.now().strftime('%Y%m%d')}.csv",
             mime="text/csv",
@@ -625,13 +625,13 @@ with tabs[12]:
         if enable_export:
             if PDF_ENABLED and FPDF:
 
-                # PDF banane ka function - 4 space indent zaroori hai
+                # PDF banane ka function - 4 space indent zaroori
                 def create_pdf():
                     pdf = FPDF()
                     pdf.add_page()
                     pdf.set_font('Arial', 'B', 16)
 
-                    # Helper function - har text ko ASCII safe bana dega
+                    # Helper - har text ko ASCII safe bana dega
                     def safe_text(txt):
                         return str(txt).encode('ascii', 'ignore').decode('ascii')
 
@@ -663,21 +663,24 @@ with tabs[12]:
                     pdf.cell(0, 8, safe_text(f'Wind Status: {threat_msg}'), 0, 1)
                     pdf.cell(0, 8, safe_text(f'Cloud Cover: {cloud}%'), 0, 1)
 
-                    return pdf.output(dest='S')
+                    # IMPORTANT: Bytes return karo warna Streamlit error dega
+                    return pdf.output(dest='S').encode('latin-1', 'replace')
 
                 # PDF data banao
                 pdf_data = create_pdf()
 
                 # PDF download button
                 st.download_button(
-                    label="Download PDF Report",
+                    label="📄 Download PDF Report",
                     data=pdf_data,
                     file_name=f"SolarX_{country}_{datetime.now().strftime('%Y%m%d')}.pdf",
                     mime="application/pdf",
                     key="pdf_download_btn"
                 )
             else:
-                st.info("PDF disabled. Add 'fpdf2' in requirements.txt and Reboot app")
+                st.warning("⚠️ PDF disabled. Add 'fpdf2' in requirements.txt and Reboot app")
+        else:
+            st.info("PDF disabled. Sidebar se 'Enable PDF Report' on karo")
 
     st.divider()
 
