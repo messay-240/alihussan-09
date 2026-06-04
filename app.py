@@ -769,14 +769,16 @@ from io import BytesIO # TOP PE IMPORTS ME YE ADD KARO
 #... baqi code same...
 
 with tabs[12]:
-    week_weather, hourly_data = get_7day_weather(lat, lon)
-
-    if week_weather is None:
-        st.warning("Weather API offline hai. App baaki kaam karegi.")
-    else:
-        # Yahan pura weather + 7 din wala code likho
-    st.metric(...)
-    st.markdown("<span class='info-label'>🌤️ 7 DIN LIVE WEATHER + LOCATION MAP</span>", unsafe_allow_html=True)
+   if week_weather:
+       st.metric("Today Wind", f"{week_weather[0]['wind_max']:.1f} km/h")
+       st.metric("Today Temp Max", f"{week_weather[0]['temp_max']:.1f}°C")
+       st.metric("Today Temp Min", f"{week_weather[0]['temp_min']:.1f}°C")
+       st.metric("Cloud Cover", f"{week_weather[0]['cloud']:.0f}%")
+   else:
+       st.error("⚠️ Weather data load nahi ho raha")
+       st.metric("Today Wind", "N/A")
+       st.metric("Today Temp Max", "N/A")
+       st.markdown("<span class='info-label'>🌤️ 7 DIN LIVE WEATHER + LOCATION MAP</span>", unsafe_allow_html=True)
 
     lat, lon = c_lat, 70.0
     location_name = country
