@@ -769,7 +769,8 @@ from io import BytesIO # TOP PE IMPORTS ME YE ADD KARO
 #... baqi code same...
 
 with tabs[12]:
-       week_weather, hourly_data = get_7day_weather(lat, lon)
+          # Weather Section - Tab 12
+    week_weather, hourly_data = get_7day_weather(lat, lon)
 
     if week_weather:
         col1, col2, col3, col4 = st.columns(4)
@@ -777,8 +778,12 @@ with tabs[12]:
             st.metric("Today Wind", f"{week_weather[0]['wind_max']:.1f} km/h")
         with col2:
             st.metric("Today Temp Max", f"{week_weather[0]['temp_max']:.1f}°C")
+        with col3:
+            st.metric("Today Temp Min", f"{week_weather[0]['temp_min']:.1f}°C")
+        with col4:
+            st.metric("Cloud Cover", f"{week_weather[0]['cloud']:.0f}%")
     else:
-        st.error("⚠️ Weather data load nahi ho raha")
+        st.error("⚠️ Weather API offline hai. Location check karo.")
         st.metric("Today Wind", "N/A")
    if week_weather:
        st.metric("Today Wind", f"{week_weather[0]['wind_max']:.1f} km/h")
