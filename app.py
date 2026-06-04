@@ -780,8 +780,8 @@ with tabs[12]:
        st.metric("Today Temp Max", "N/A")
        st.markdown("<span class='info-label'>🌤️ 7 DIN LIVE WEATHER + LOCATION MAP</span>", unsafe_allow_html=True)
 
-    lat, lon = c_lat, 70.0
-    location_name = country
+       lat, lon = c_lat, 70.0
+       location_name = country
 
     if use_live_weather and password == "solar2026" and GEO_ENABLED:
         geolocator = Nominatim(user_agent="solarx_app")
