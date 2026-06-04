@@ -453,27 +453,6 @@ voc_string = voc_std * panels_per_string
 isc_string = isc * strings
 mppt_voltage = voc_string * 0.8
 
-# Live Weather + Location Logic
-wind = wind_kmh_db
-cloud = 20
-location_name = country
-
-if use_live_weather and password == "solar2026" and GEO_ENABLED:
-    geolocator = Nominatim(user_agent="solarx_app_v1.0", timeout=5)
-try:
-    location = geolocator.geocode(country)
-    if location:
-        lat, lon = location.latitude, location.longitude
-        location_name = location.address.split(',')[0]
-    else:
-        st.warning(f"⚠️ Location '{country}' nahi mili. Manual lat/lon use ho rahe hain.")
-        lat, lon = 31.52, 74.35 # Lahore default
-        location_name = country
-except Exception as e:
-    st.warning(f"⚠️ Geocoder offline hai. Default location use ho rahi hai: Lahore")
-    lat, lon = 31.52, 74.35
-    location_name = country
-
 # Wind + Structure
 wind_force = calc_wind_load(wind, tilt, p_qty)
 struct = structure_db[wind_zone]
