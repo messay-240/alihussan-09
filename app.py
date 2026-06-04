@@ -1,4 +1,47 @@
 import streamlit as st
+st.set_page_config(page_title="Solar Power Estimator Pro", layout="wide", page_icon="⚡")
+
+# --- TERMS & AGREEMENT POPUP ---
+def show_terms():
+    @st.dialog("📄 Terms & Privacy Agreement")
+    def terms_dialog():
+        st.markdown("""
+        ### ⚠️ IMPORTANT DISCLAIMER
+        
+        By using this Solar Power Estimator Pro app, you agree that:
+        
+        1. **No Liability**: The calculations and estimates provided are for educational and planning purposes only. We are NOT responsible for any financial loss, installation errors, or damage caused by using this data.
+        
+        2. **Data Usage**: Your location/country selection may be used for weather API calls. We do NOT store or share your personal data.
+        
+        3. **Accuracy**: Solar generation depends on real weather, panel quality, installation. Results may vary ±20%.
+        
+        4. **Third Party APIs**: Open-Meteo and Nominatim services are used. If they are offline, app will use database values.
+        
+        5. **Professional Advice**: Always consult a certified solar engineer before actual installation.
+        
+        By clicking "I Agree", you accept all terms above.
+        """)
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("❌ I Disagree", use_container_width=True, type="secondary"):
+                st.stop()  # App band kar dega
+        
+        with col2:
+            if st.button("✅ I Agree", use_container_width=True, type="primary"):
+                st.session_state['agreed'] = True
+                st.rerun()
+
+    if 'agreed' not in st.session_state:
+        terms_dialog()
+        st.stop()  # Jab tak agree nahi karega, app niche nahi jayegi
+
+# TERMS CHECK CALL KARO - YE LINE SAB SE UPAR
+show_terms()
+
+# --- USKE BAAD TUMHARA SARA CODE ---
+# st.markdown CSS wala code yahan se start hoga...
 import pandas as pd
 import numpy as np
 import math  # <-- YE LINE ADD KARO
