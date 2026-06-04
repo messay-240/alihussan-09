@@ -769,13 +769,17 @@ from io import BytesIO # TOP PE IMPORTS ME YE ADD KARO
 #... baqi code same...
 
 with tabs[12]:
-    week_weather, hourly_data = get_7day_weather(lat, lon)
+       week_weather, hourly_data = get_7day_weather(lat, lon)
 
-   if week_weather is None:
-       st.warning("Weather API offline hai. App baaki kaam karegi.")
-   else:
-       # Yahan pura weather + 7 din wala code likho
-       st.metric(...)
+    if week_weather:
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Today Wind", f"{week_weather[0]['wind_max']:.1f} km/h")
+        with col2:
+            st.metric("Today Temp Max", f"{week_weather[0]['temp_max']:.1f}°C")
+    else:
+        st.error("⚠️ Weather data load nahi ho raha")
+        st.metric("Today Wind", "N/A")
    if week_weather:
        st.metric("Today Wind", f"{week_weather[0]['wind_max']:.1f} km/h")
        st.metric("Today Temp Max", f"{week_weather[0]['temp_max']:.1f}°C")
