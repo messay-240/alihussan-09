@@ -9,12 +9,11 @@ from streamlit_folium import st_folium
 from geopy.geocoders import Nominatim
 import requests
 
-@st.cache_data(ttl=86400) # 1 din cache
+@st.cache_data(ttl=86400)
 def safe_geocode(country_name, c_lat_fallback):
     """Geocoder with fallback - crash nahi hoga"""
     if not GEO_ENABLED:
         return c_lat_fallback, 70.0, country_name
-
     try:
         geolocator = Nominatim(user_agent="solarx_app_final_v3", timeout=3)
         location = geolocator.geocode(country_name)
@@ -23,7 +22,6 @@ def safe_geocode(country_name, c_lat_fallback):
         else:
             return c_lat_fallback, 70.0, country_name
     except:
-        # Agar Nominatim block ho jaye to DB wala lat use karo
         return c_lat_fallback, 70.0, country_name
 @st.cache_data(ttl=1800)
 def get_7day_weather(lat, lon):
@@ -588,108 +586,42 @@ with tabs[3]:
             st.markdown(f"<div class='feature-box'><b>Backup:</b><br>{b_cap/h_load*24:.1f} hours<br><br>Notes: {b_note}</div>", unsafe_allow_html=True)
     else:
         st.info("Grid-Tied System - No Battery")
-
 with tabs[4]:
-    st.markdown("<span class='info-label'>🌤️ LIVE WEATHER + 7 DIN FORECAST + MAP</span>", unsafe_allow_html=True)
+    st.markdown("<span class='info-label'>⚡ ELECTRICAL DESIGN</span>", unsafe_allow_html=True)
 
-    location_name = country
-    lat, lon = c_lat, 70.0 # default Pakistan lon
-    wind = wind_kmh_db
-    cloud = 20
-    temp_ambient = 28
+    # SAFE LOCATION - GEOCODER USE NAHI HOGA YAHAN
+    lat, lon, location_name = safe_geocode(country, c_lat)
 
-    if use_live_weather and password == LIVE_PASSWORD and GEO_ENABLED:
-        geolocator = Nominatim(user_agent="solarx_app")
-        location = geolocator.geocode(country)
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.metric("DC Voltage VOC", f"{voc_string:.0f} V")
+        st.metric("DC Current ISC", f"{isc_string:.1f} A")
+        st.metric("MPPT Voltage", f"{mppt_voltage:.0f} V")
 
-        if location:
-            lat, lon = location.latitude, location.longitude
-            location_name = location.address
-            week_weather, hourly_data = get_7day_weather(lat, lon)
+    with c2:
+        st.metric("Cable Size", f"{cable_size} mm²")
+        st.metric("Cable Length", f"{wire_length} m")
+        st.metric("Voltage Drop", f"{voltage_drop:.2f} V")
 
-            if week_weather:
-                st.success(f"✅ LIVE CONNECTED: {location_name}")
+    with c3:
+        st.metric("VD % Loss", f"{vd_percent:.2f}%")
+        st.metric("Grid Voltage", f"{grid_v}V {grid_f}Hz")
+        st.metric("Building Height", f"{building_height} m")
 
-                # GOOGLE MAP
-                col_map, col_data = st.columns([1, 1])
-                with col_map:
-                    st.markdown("**📍 Your Location on Map**")
-                    m = folium.Map(location=[lat, lon], zoom_start=10)
-                    folium.Marker([lat, lon], popup=location_name, icon=folium.Icon(color='red', icon='bolt')).add_to(m)
-                    st_folium(m, height=300, width=400)
+    st.divider()
+    st.markdown("<span class='info-label'>⚡ LIGHTNING PROTECTION - IEC 62305</span>", unsafe_allow_html=True)
 
-                with col_data:
-                    st.metric("Latitude", f"{lat:.4f}°")
-                    st.metric("Longitude", f"{lon:.4f}°")
-                    st.metric("Current Wind", f"{week_weather[0]['wind_max']:.1f} km/h")
+    c4, c5 = st.columns(2)
+    with c4:
+        st.metric("Lightning Rod Height", f"{rod_height:.1f} m")
+        st.metric("Protection Radius", f"{protection_radius} m")
+    with c5:
+        st.markdown(f"<div class='feature-box'><b>Notes:</b><br>• Rod height = Building + 1.5m<br>• Radius = 30m for <20m building<br>• Cost: {lightning_cost:,.0f} {c_curr}</div>", unsafe_allow_html=True)
 
-                # 7 DIN KA GRAPH
-                dates = [w['date'] for w in week_weather]
-                temp_max = [w['temp_max'] for w in week_weather]
-                temp_min = [w['temp_min'] for w in week_weather]
-                wind_max = [w['wind_max'] for w in week_weather]
-                cloud = [w['cloud'] for w in week_weather]
-
-                fig = go.Figure()
-                fig.add_trace(go.Bar(x=dates, y=temp_max, name="Max Temp °C", marker_color='#ef4444'))
-                fig.add_trace(go.Bar(x=dates, y=temp_min, name="Min Temp °C", marker_color='#3b82f6'))
-                fig.add_trace(go.Scatter(x=dates, y=wind_max, name="Wind km/h", yaxis='y2', line=dict(color='#f59e0b', width=3)))
-                fig.update_layout(
-                    title="7 Din Ka Weather Forecast",
-                    yaxis=dict(title="Temperature °C"),
-                    yaxis2=dict(title="Wind km/h", overlaying='y', side='right'),
-                    height=400, barmode='group', hovermode='x unified'
-                )
-                st.plotly_chart(fig, use_container_width=True)
-
-                # TABLE
-                df_week = pd.DataFrame({
-                    "Date": dates,
-                    "Max °C": [round(t, 1) for t in temp_max],
-                    "Min °C": [round(t, 1) for t in temp_min],
-                    "Wind km/h": [round(w, 1) for w in wind_max],
-                    "Cloud %": cloud,
-                    "Risk": ["🔴 Extreme" if w>80 else "🟠 High" if w>50 else "🟢 Safe" for w in wind_max]
-                })
-                st.dataframe(df_week, use_container_width=True)
-
-                # WEEKLY GENERATION ESTIMATE
-                avg_wind = np.mean(wind_max)
-                avg_cloud = np.mean(cloud)
-                weather_factor = 1 - avg_cloud*0.008 + avg_wind*0.0003
-                weekly_gen = daily_yield * 7 * weather_factor
-
-                st.divider()
-                k1, k2, k3 = st.columns(3)
-                k1.metric("7 Din Avg Wind", f"{avg_wind:.1f} km/h")
-                k2.metric("7 Din Avg Cloud", f"{avg_cloud:.0f}%")
-                k3.metric("7 Din Est Generation", f"{weekly_gen:.1f} kWh")
-
-                # HOURLY TODAY
-                st.markdown("**Aaj Ka Hourly Weather**")
-                today_hours = hourly_data['time'][:24]
-                today_temp = hourly_data['temperature_2m'][:24]
-                today_wind = [w*3.6 for w in hourly_data['wind_speed_10m'][:24]]
-
-                fig2 = go.Figure()
-                fig2.add_trace(go.Scatter(x=today_hours, y=today_temp, name="Temp °C", line=dict(color='red')))
-                fig2.add_trace(go.Scatter(x=today_hours, y=today_wind, name="Wind km/h", yaxis='y2', line=dict(color='orange')))
-                st.plotly_chart(fig2, use_container_width=True)
-
-            else:
-                st.error("⚠️ Weather data fetch nahi hua")
-        else:
-            st.warning("Location nahi mili")
-
-    elif use_live_weather and password!= LIVE_PASSWORD:
-        st.error("❌ Password galat hai. Sahi password: `solar2026`")
-
+    if vd_percent > 3:
+        st.warning(f"⚠️ Voltage Drop {vd_percent:.2f}% > 3% hai. Cable size {cable_size}mm² se {cable_size+6}mm² karo")
     else:
-        st.info("💡 Live Weather OFF hai. Manual data use ho raha hai.")
-        st.metric("Country", country)
-        st.metric("Base Daily Gen", f"{daily_yield:.1f} kWh")
-        st.metric("Base Weekly Gen", f"{daily_yield*7:.1f} kWh")
-        st.warning("Live weather + Map ke liye Sidebar se ON karo + Password dalo")
+        st.success(f"✅ Voltage Drop {vd_percent:.2f}% - Design OK")
 with tabs[5]:
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Gross Cost", f"{gross_cost:,.0f} {c_curr}")
