@@ -769,22 +769,30 @@ from io import BytesIO # TOP PE IMPORTS ME YE ADD KARO
 #... baqi code same...
 
 with tabs[12]:
-          # Weather Section - Tab 12
+        st.header("🌤️ 7 Din Ka Weather + Map")
+
+    # Location se lat/lon nikal lo - ye wala code pehle se hoga tumhare paas
+    geolocator = Nominatim(user_agent="solarx_app_v1.0", timeout=5)
+    try:
+        location = geolocator.geocode(country)
+        lat, lon = location.latitude, location.longitude if location else (31.52, 74.35)
+    except:
+        lat, lon = 31.52, 74.35
+
+    # WEATHER API CALL
     week_weather, hourly_data = get_7day_weather(lat, lon)
 
+    # SAFE DISPLAY
     if week_weather:
         col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("Today Wind", f"{week_weather[0]['wind_max']:.1f} km/h")
-        with col2:
-            st.metric("Today Temp Max", f"{week_weather[0]['temp_max']:.1f}°C")
-        with col3:
-            st.metric("Today Temp Min", f"{week_weather[0]['temp_min']:.1f}°C")
-        with col4:
-            st.metric("Cloud Cover", f"{week_weather[0]['cloud']:.0f}%")
+        col1.metric("Today Wind", f"{week_weather[0]['wind_max']:.1f} km/h")
+        col2.metric("Max Temp", f"{week_weather[0]['temp_max']:.1f}°C")
+        col3.metric("Min Temp", f"{week_weather[0]['temp_min']:.1f}°C")
+        col4.metric("Cloud", f"{week_weather[0]['cloud']:.0f}%")
+
+        st.success("Weather load ho gaya ✅")
     else:
-        st.error("⚠️ Weather API offline hai. Location check karo.")
-        st.metric("Today Wind", "N/A")
+        st.error("⚠️ Weather API offline hai. 2 min baad refresh karo.")
    if week_weather:
        st.metric("Today Wind", f"{week_weather[0]['wind_max']:.1f} km/h")
        st.metric("Today Temp Max", f"{week_weather[0]['temp_max']:.1f}°C")
