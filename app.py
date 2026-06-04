@@ -867,6 +867,11 @@ with tabs[12]:
         st.warning("Live weather + Map ke liye Sidebar se ON karo + Password dalo")
 with tabs[13]:
     st.markdown("<span class='info-label'>📤 EXPORT REPORT - CSV + PDF</span>", unsafe_allow_html=True)
+
+    # PDF EXPORT CHECKBOX - PEHLE DEFINE KARO
+    enable_export = st.checkbox("📄 PDF Export", value=False)
+
+    # CSV DATA FRAME
     df = pd.DataFrame({
         "Hour": hours,
         "Generation_kW": [round(x, 3) for x in gen_24],
@@ -878,9 +883,15 @@ with tabs[13]:
     })
     csv = df.to_csv(index=False).encode('utf-8')
 
+    # BUTTONS
     col1, col2 = st.columns(2)
     with col1:
-        st.download_button("📥 Download CSV", csv, file_name=f"SolarX_{country}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv", mime="text/csv")
+        st.download_button(
+            "📥 Download CSV",
+            csv,
+            file_name=f"SolarX_{country}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+            mime="text/csv"
+        )
 
     with col2:
         if enable_export:
@@ -892,14 +903,22 @@ with tabs[13]:
                 "Wind Speed": f"{wind:.1f} km/h",
                 "Wind Force": f"{wind_force:.1f} kN",
                 "Cable Size": f"{cable_size} mm²",
-                "Total Cost": f"{net_cost:,.0f} {c_curr}"
+                "VD Loss": f"{vd_percent:.2f}%",
+                "Total Cost": f"{net_cost:,.0f} {c_curr}",
+                "Payback": f"{payback:.1f} Years"
             }
             pdf_data = generate_pdf_report(report_data)
 
             # SAFE CHECK - None na jaye
             if pdf_data is not None and len(pdf_data) > 0:
-                st.download_button("📄 Download PDF", pdf_data, file_name=f"SolarX_Report_{country}.pdf", mime="application/pdf")
+                st.download_button(
+                    "📄 Download PDF",
+                    pdf_data,
+                    file_name=f"SolarX_Report_{country}.pdf",
+                    mime="application/pdf"
+                )
             else:
-                st.info("💡 PDF ke liye 'pip install fpdf2' karo aur app reboot karo")
+                st.info("💡 PDF ke liye 'pip install fpdf2' karo aur requirements.txt me add karo")
 
-    st.dataframe(df, height=350)
+    # TABLE PREVIEW
+    st.dataframe(df, height=350, use_container_width=True)
