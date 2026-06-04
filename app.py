@@ -446,15 +446,20 @@ with st.expander("💹 Financial"):
     discount_rate = st.slider("Discount %", 3, 15, 8, key="discount")
 
 # --- CALCULATIONS ---
-sys_size = (p_eff * p_qty * 100) / 1000 # kWp approx
-panels_per_string = int(1000 / voc_std) # Max 1000V DC
+sys_size = (p_eff * p_qty * 100) / 1000
+panels_per_string = int(1000 / voc_std)
 strings = math.ceil(p_qty / panels_per_string)
 voc_string = voc_std * panels_per_string
 isc_string = isc * strings
 mppt_voltage = voc_string * 0.8
 
+# SAFE LOCATION - GEOCODER CRASH PROOF
+lat, lon, location_name = safe_geocode(country, c_lat)
+wind = wind_kmh_db  # <-- ZAROORI HAI
+cloud = 20          # <-- ZAROORI HAI
+
 # Wind + Structure
-wind_force = calc_wind_load(wind, tilt, p_qty)
+wind_force = calc_wind_load(wind, tilt, p_qty) # <-- Ab wind milega
 struct = structure_db[wind_zone]
 wind_safe = wind_force < (sys_size * 50)
 
