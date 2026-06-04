@@ -769,111 +769,102 @@ from io import BytesIO # TOP PE IMPORTS ME YE ADD KARO
 #... baqi code same...
 
 with tabs[12]:
-        st.header("🌤️ 7 Din Ka Weather + Map")
+    st.markdown("<span class='info-label'>🌤️ 7 DIN LIVE WEATHER + LOCATION MAP</span>", unsafe_allow_html=True)
 
-    # Location se lat/lon nikal lo - ye wala code pehle se hoga tumhare paas
-    geolocator = Nominatim(user_agent="solarx_app_v1.0", timeout=5)
-    try:
-        location = geolocator.geocode(country)
-        lat, lon = location.latitude, location.longitude if location else (31.52, 74.35)
-    except:
-        lat, lon = 31.52, 74.35
-
-    # WEATHER API CALL
-    week_weather, hourly_data = get_7day_weather(lat, lon)
-
-    # SAFE DISPLAY
-    if week_weather:
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Today Wind", f"{week_weather[0]['wind_max']:.1f} km/h")
-        col2.metric("Max Temp", f"{week_weather[0]['temp_max']:.1f}°C")
-        col3.metric("Min Temp", f"{week_weather[0]['temp_min']:.1f}°C")
-        col4.metric("Cloud", f"{week_weather[0]['cloud']:.0f}%")
-
-        st.success("Weather load ho gaya ✅")
-    else:
-        st.error("⚠️ Weather API offline hai. 2 min baad refresh karo.")
-   if week_weather:
-       st.metric("Today Wind", f"{week_weather[0]['wind_max']:.1f} km/h")
-       st.metric("Today Temp Max", f"{week_weather[0]['temp_max']:.1f}°C")
-       st.metric("Today Temp Min", f"{week_weather[0]['temp_min']:.1f}°C")
-       st.metric("Cloud Cover", f"{week_weather[0]['cloud']:.0f}%")
-   else:
-       st.error("⚠️ Weather data load nahi ho raha")
-       st.metric("Today Wind", "N/A")
-       st.metric("Today Temp Max", "N/A")
-       st.markdown("<span class='info-label'>🌤️ 7 DIN LIVE WEATHER + LOCATION MAP</span>", unsafe_allow_html=True)
-
-       lat, lon = c_lat, 70.0
-       location_name = country
+    lat, lon = c_lat, 70.0
+    location_name = country
+    wind = wind_kmh_db
 
     if use_live_weather and password == "solar2026" and GEO_ENABLED:
-        geolocator = Nominatim(user_agent="solarx_app")
-        location = geolocator.geocode(country)
-
-        if location:
-            lat, lon = location.latitude, location.longitude
-            location_name = location.address.split(',')[0]
-            week_weather = get_7day_weather(lat, lon)
-
-            if week_weather:
-                st.success(f"✅ LIVE: {location_name}")
-
-                col_map, col_data = st.columns([1, 1])
-                with col_map:
-                    st.markdown("**📍 Google Map**")
-                    m = folium.Map(location=[lat, lon], zoom_start=10)
-                    folium.Marker([lat, lon], popup=location_name, icon=folium.Icon(color='red', icon='bolt')).add_to(m)
-                    st_folium(m, height=350, key=f"map_{lat}_{lon}_{country}") # <-- KEY ADD KAR DI
-                with col_data:
-                    st.metric("Lat", f"{lat:.4f}° N")
-                    st.metric("Lon", f"{lon:.4f}° E")
-                    st.metric("Today Wind", f"{week_weather[0]['wind_max']:.1f} km/h")
-
-                dates = [w['date'][5:] for w in week_weather]
-                temp_max = [w['temp_max'] for w in week_weather]
-                temp_min = [w['temp_min'] for w in week_weather]
-                wind_max = [w['wind_max'] for w in week_weather]
-
-                fig = go.Figure()
-                fig.add_trace(go.Bar(x=dates, y=temp_max, name="Max °C", marker_color='#ef4444'))
-                fig.add_trace(go.Bar(x=dates, y=temp_min, name="Min °C", marker_color='#3b82f6'))
-                fig.add_trace(go.Scatter(x=dates, y=wind_max, name="Wind km/h", yaxis='y2', line=dict(color='#f59e0b', width=3)))
-                fig.update_layout(yaxis=dict(title="°C"), yaxis2=dict(title="km/h", overlaying='y', side='right'), height=400)
-                st.plotly_chart(fig, use_container_width=True)
-
-                df_week = pd.DataFrame({
-                    "Date": dates,
-                    "Max °C": [round(t, 1) for t in temp_max],
-                    "Min °C": [round(t, 1) for t in temp_min],
-                    "Wind km/h": [round(w, 1) for w in wind_max],
-                    "Cloud %": [w['cloud'] for w in week_weather],
-                    "Risk": ["🔴 Extreme" if w>80 else "🟠 High" if w>50 else "🟢 Safe" for w in wind_max]
-                })
-                st.dataframe(df_week, use_container_width=True)
-
-                avg_wind = np.mean(wind_max)
-                avg_cloud = np.mean([w['cloud'] for w in week_weather])
-                weather_factor = 1 - avg_cloud*0.008
-                weekly_gen = daily_yield * 7 * weather_factor
-                st.metric("7 Din Est Generation", f"{weekly_gen:.1f} kWh")
+        geolocator = Nominatim(user_agent="solarx_app_v1.0", timeout=5)
+        try:
+            location = geolocator.geocode(country)
+            if location:
+                lat, lon = location.latitude, location.longitude
+                location_name = location.address.split(',')[0]
             else:
-                st.error("Weather fetch nahi hua")
+                st.warning(f"⚠️ Location '{country}' nahi mili. Default lat/lon use ho rahe hain.")
+                lat, lon = c_lat, 70.0
+                location_name = country
+        except Exception as e:
+            st.warning(f"⚠️ Geocoder offline hai. Default location use ho rahi hai.")
+            lat, lon = c_lat, 70.0
+            location_name = country
+
+        # WEATHER API CALL
+        week_weather, hourly_data = get_7day_weather(lat, lon)
+
+        if week_weather:
+            st.success(f"✅ LIVE CONNECTED: {location_name}")
+
+            # GOOGLE MAP + DATA
+            col_map, col_data = st.columns([1, 1])
+            with col_map:
+                st.markdown("**📍 Your Location on Map**")
+                m = folium.Map(location=[lat, lon], zoom_start=10)
+                folium.Marker([lat, lon], popup=location_name, icon=folium.Icon(color='red', icon='bolt')).add_to(m)
+                st_folium(m, height=350, width=400, key=f"map_{lat}_{lon}_{country}")
+
+            with col_data:
+                st.metric("Latitude", f"{lat:.4f}°")
+                st.metric("Longitude", f"{lon:.4f}°")
+                st.metric("Today Wind", f"{week_weather[0]['wind_max']:.1f} km/h")
+                st.metric("Today Temp Max", f"{week_weather[0]['temp_max']:.1f}°C")
+
+            # 7 DIN KA GRAPH
+            dates = [w['date'][5:] for w in week_weather]
+            temp_max = [w['temp_max'] for w in week_weather]
+            temp_min = [w['temp_min'] for w in week_weather]
+            wind_max = [w['wind_max'] for w in week_weather]
+            cloud = [w['cloud'] for w in week_weather]
+
+            fig = go.Figure()
+            fig.add_trace(go.Bar(x=dates, y=temp_max, name="Max Temp °C", marker_color='#ef4444'))
+            fig.add_trace(go.Bar(x=dates, y=temp_min, name="Min Temp °C", marker_color='#3b82f6'))
+            fig.add_trace(go.Scatter(x=dates, y=wind_max, name="Wind km/h", yaxis='y2', line=dict(color='#f59e0b', width=3)))
+            fig.update_layout(
+                title="7 Din Ka Weather Forecast",
+                yaxis=dict(title="Temperature °C"),
+                yaxis2=dict(title="Wind km/h", overlaying='y', side='right'),
+                height=400, barmode='group', hovermode='x unified', plot_bgcolor='rgba(255,255,255,0.8)'
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+            # TABLE
+            df_week = pd.DataFrame({
+                "Date": dates,
+                "Max °C": [round(t, 1) for t in temp_max],
+                "Min °C": [round(t, 1) for t in temp_min],
+                "Wind km/h": [round(w, 1) for w in wind_max],
+                "Cloud %": cloud,
+                "Risk": ["🔴 Extreme" if w>80 else "🟠 High" if w>50 else "🟢 Safe" for w in wind_max]
+            })
+            st.dataframe(df_week, use_container_width=True)
+
+            # WEEKLY GENERATION ESTIMATE
+            avg_wind = np.mean(wind_max)
+            avg_cloud = np.mean(cloud)
+            weather_factor = 1 - avg_cloud*0.008 + avg_wind*0.0003
+            weekly_gen = daily_yield * 7 * weather_factor
+
+            st.divider()
+            k1, k2, k3 = st.columns(3)
+            k1.metric("7 Din Avg Wind", f"{avg_wind:.1f} km/h")
+            k2.metric("7 Din Avg Cloud", f"{avg_cloud:.0f}%")
+            k3.metric("7 Din Est Generation", f"{weekly_gen:.1f} kWh")
+
         else:
-            st.warning("Location nahi mili")
+            st.error("⚠️ Weather data fetch nahi hua. API offline ho sakta hai.")
 
     elif use_live_weather and password!= "solar2026":
-        st.error("❌ Password galat. Sahi: `solar2026`")
+        st.error("❌ Password galat hai. Sahi password: `solar2026`")
 
     else:
-        st.info("💡 Live OFF hai. Sidebar se ON + Password dalo")
+        st.info("💡 Live Weather OFF hai. Manual data use ho raha hai.")
         st.metric("Country", country)
-        st.metric("Weekly Gen", f"{daily_yield*7:.1f} kWh")
-        enable_export = st.checkbox("📄 PDF Export", value=False)
-        # YE PURA BLOCK DELETE KAR DO LINE 853 SE
-        if enable_export:
-           pdf_data = ...
-           st.download_button(...)
+        st.metric("Base Daily Gen", f"{daily_yield:.1f} kWh")
+        st.metric("Base Weekly Gen", f"{daily_yield*7:.1f} kWh")
+        st.warning("Live weather + Map ke liye Sidebar se ON karo + Password dalo")
 with tabs[13]:
     st.markdown("<span class='info-label'>📤 EXPORT REPORT - CSV + PDF</span>", unsafe_allow_html=True)
     df = pd.DataFrame({
