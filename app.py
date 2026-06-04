@@ -9,6 +9,22 @@ from streamlit_folium import st_folium
 from geopy.geocoders import Nominatim
 import requests
 
+@st.cache_data(ttl=86400) # 1 din cache
+def safe_geocode(country_name, c_lat_fallback):
+    """Geocoder with fallback - crash nahi hoga"""
+    if not GEO_ENABLED:
+        return c_lat_fallback, 70.0, country_name
+
+    try:
+        geolocator = Nominatim(user_agent="solarx_app_final_v3", timeout=3)
+        location = geolocator.geocode(country_name)
+        if location:
+            return location.latitude, location.longitude, location.address.split(',')[0]
+        else:
+            return c_lat_fallback, 70.0, country_name
+    except:
+        # Agar Nominatim block ho jaye to DB wala lat use karo
+        return c_lat_fallback, 70.0, country_name
 @st.cache_data(ttl=1800)
 def get_7day_weather(lat, lon):
     """7 Din ka weather Open-Meteo API se"""
