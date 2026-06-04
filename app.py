@@ -787,30 +787,11 @@ from io import BytesIO # TOP PE IMPORTS ME YE ADD KARO
 with tabs[12]:
     st.markdown("<span class='info-label'>🌤️ 7 DIN LIVE WEATHER + LOCATION MAP</span>", unsafe_allow_html=True)
 
-    lat, lon = c_lat, 70.0
-    location_name = country
-    wind = wind_kmh_db
+    # SAFE LOCATION - GEOCODER CRASH NAHI KAREGA
+    lat, lon, location_name = safe_geocode(country, c_lat)
 
     if use_live_weather and password == "solar2026" and GEO_ENABLED:
-        # SAFE GEOCODER WITH FALLBACK
-        try:
-            geolocator = Nominatim(user_agent="solarx_app_v2.1", timeout=5)
-            location = geolocator.geocode(country)
-
-            if location:
-                lat, lon = location.latitude, location.longitude
-                location_name = location.address.split(',')[0]
-            else:
-                st.warning(f"⚠️ '{country}' ki location nahi mili. DB wala lat/lon use ho raha hai.")
-                lat, lon = c_lat, 70.0
-                location_name = country
-
-        except Exception as e:
-            st.warning("⚠️ Nominatim server busy hai. DB ka default location use ho raha hai.")
-            lat, lon = c_lat, 70.0
-            location_name = country
-
-        # WEATHER API CALL - SAFE
+        # WEATHER API CALL
         try:
             week_weather, hourly_data = get_7day_weather(lat, lon)
         except:
@@ -819,8 +800,7 @@ with tabs[12]:
         if week_weather:
             st.success(f"✅ LIVE CONNECTED: {location_name}")
 
-            #... baaki ka map + graph wala code same rahega...
-
+            # GOOGLE MAP + DATA SIDE BY SIDE
             col_map, col_data = st.columns([1, 1])
             with col_map:
                 st.markdown("**📍 Your Location on Map**")
@@ -833,6 +813,7 @@ with tabs[12]:
                 st.metric("Longitude", f"{lon:.4f}°")
                 st.metric("Today Wind", f"{week_weather[0]['wind_max']:.1f} km/h")
                 st.metric("Today Temp Max", f"{week_weather[0]['temp_max']:.1f}°C")
+                st.metric("Today Temp Min", f"{week_weather[0]['temp_min']:.1f}°C")
 
             # 7 DIN KA GRAPH
             dates = [w['date'][5:] for w in week_weather]
@@ -845,11 +826,39 @@ with tabs[12]:
             fig.add_trace(go.Bar(x=dates, y=temp_max, name="Max Temp °C", marker_color='#ef4444'))
             fig.add_trace(go.Bar(x=dates, y=temp_min, name="Min Temp °C", marker_color='#3b82f6'))
             fig.add_trace(go.Scatter(x=dates, y=wind_max, name="Wind km/h", yaxis='y2', line=dict(color='#f59e0b', width=3)))
-            fig.update_layout(height=400, barmode='group')
+            fig.update_layout(
+                title="7 Din Ka Weather Forecast",
+                yaxis=dict(title="Temperature °C"),
+                yaxis2=dict(title="Wind km/h", overlaying='y', side='right'),
+                height=400, barmode='group', hovermode='x unified', plot_bgcolor='rgba(255,255,255,0.8)'
+            )
             st.plotly_chart(fig, use_container_width=True)
 
+            # TABLE
+            df_week = pd.DataFrame({
+                "Date": dates,
+                "Max °C": [round(t, 1) for t in temp_max],
+                "Min °C": [round(t, 1) for t in temp_min],
+                "Wind km/h": [round(w, 1) for w in wind_max],
+                "Cloud %": cloud,
+                "Risk": ["🔴 Extreme" if w>80 else "🟠 High" if w>50 else "🟢 Safe" for w in wind_max]
+            })
+            st.dataframe(df_week, use_container_width=True)
+
+            # WEEKLY GENERATION
+            avg_wind = np.mean(wind_max)
+            avg_cloud = np.mean(cloud)
+            weather_factor = 1 - avg_cloud*0.008 + avg_wind*0.0003
+            weekly_gen = daily_yield * 7 * weather_factor
+
+            st.divider()
+            k1, k2, k3 = st.columns(3)
+            k1.metric("7 Din Avg Wind", f"{avg_wind:.1f} km/h")
+            k2.metric("7 Din Avg Cloud", f"{avg_cloud:.0f}%")
+            k3.metric("7 Din Est Generation", f"{weekly_gen:.1f} kWh")
+
         else:
-            st.error("⚠️ Weather API bhi offline hai. 2 min baad refresh karo.")
+            st.error("⚠️ Weather API offline hai. 2 min baad refresh karo.")
 
     elif use_live_weather and password!= "solar2026":
         st.error("❌ Password galat hai. Sahi password: `solar2026`")
@@ -858,7 +867,9 @@ with tabs[12]:
         st.info("💡 Live Weather OFF hai. DB ka data use ho raha hai.")
         st.metric("Country", country)
         st.metric("Lat/Lon", f"{c_lat}°, 70.0°")
+        st.metric("Base Daily Gen", f"{daily_yield:.1f} kWh")
         st.metric("Base Weekly Gen", f"{daily_yield*7:.1f} kWh")
+        st.warning("Map + Live data ke liye Sidebar se ON karo + Password dalo")
 with tabs[13]:
     st.markdown("<span class='info-label'>📤 EXPORT REPORT - CSV + PDF</span>", unsafe_allow_html=True)
 
