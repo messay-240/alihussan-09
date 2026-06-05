@@ -1,33 +1,44 @@
 import streamlit as st
 st.set_page_config(page_title="Solar Power Estimator Pro", layout="wide", page_icon="⚡")
 
+# --- SAFE IMPORTS - PEHLE DEFINE KARO ---
+GEO_ENABLED = False
+PDF_ENABLED = False
+
+try:
+    from geopy.geocoders import Nominatim
+    GEO_ENABLED = True
+except:
+    pass
+
+try:
+    from fpdf import FPDF
+    PDF_ENABLED = True
+except ImportError:
+    FPDF = None
+
 # --- TERMS & AGREEMENT POPUP ---
 def show_terms():
     @st.dialog("📄 Terms & Privacy Agreement")
     def terms_dialog():
         st.markdown("""
         ### ⚠️ IMPORTANT DISCLAIMER
-        
+
         By using this Solar Power Estimator Pro app, you agree that:
-        
-        1. **No Liability**: The calculations and estimates provided are for educational and planning purposes only. We are NOT responsible for any financial loss, installation errors, or damage caused by using this data.
-        
-        2. **Data Usage**: Your location/country selection may be used for weather API calls. We do NOT store or share your personal data.
-        
+
+        1. **No Liability**: The calculations and estimates provided are for educational and planning purposes only. We are NOT responsible for any financial loss.
+        2. **Data Usage**: Your location/country selection may be used for weather API calls. We do NOT store your personal data.
         3. **Accuracy**: Solar generation depends on real weather, panel quality, installation. Results may vary ±20%.
-        
         4. **Third Party APIs**: Open-Meteo and Nominatim services are used. If they are offline, app will use database values.
-        
         5. **Professional Advice**: Always consult a certified solar engineer before actual installation.
-        
+
         By clicking "I Agree", you accept all terms above.
         """)
-        
+
         col1, col2 = st.columns(2)
         with col1:
             if st.button("❌ I Disagree", use_container_width=True, type="secondary"):
-                st.stop()  # App band kar dega
-        
+                st.stop()
         with col2:
             if st.button("✅ I Agree", use_container_width=True, type="primary"):
                 st.session_state['agreed'] = True
@@ -35,21 +46,19 @@ def show_terms():
 
     if 'agreed' not in st.session_state:
         terms_dialog()
-        st.stop()  # Jab tak agree nahi karega, app niche nahi jayegi
+        st.stop()
 
 # TERMS CHECK CALL KARO - YE LINE SAB SE UPAR
 show_terms()
 
-# --- USKE BAAD TUMHARA SARA CODE ---
-# st.markdown CSS wala code yahan se start hoga...
+# --- USKE BAAD BAQI IMPORTS ---
 import pandas as pd
 import numpy as np
-import math  # <-- YE LINE ADD KARO
+import math
 import plotly.graph_objects as go
 from datetime import datetime
 import folium
 from streamlit_folium import st_folium
-from geopy.geocoders import Nominatim
 import requests
 
 @st.cache_data(ttl=86400)
@@ -66,6 +75,7 @@ def safe_geocode(country_name, c_lat_fallback):
             return c_lat_fallback, 70.0, country_name
     except:
         return c_lat_fallback, 70.0, country_name
+
 @st.cache_data(ttl=1800)
 def get_7day_weather(lat, lon):
     """7 Din ka weather Open-Meteo API se"""
@@ -83,7 +93,7 @@ def get_7day_weather(lat, lon):
                 'date': daily['time'][i],
                 'temp_max': daily['temperature_2m_max'][i],
                 'temp_min': daily['temperature_2m_min'][i],
-                'wind_max': daily['wind_speed_10m_max'][i] * 3.6, # m/s to km/h
+                'wind_max': daily['wind_speed_10m_max'][i] * 3.6,
                 'cloud': daily['cloud_cover_mean'][i]
             })
 
