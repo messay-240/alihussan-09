@@ -1413,116 +1413,46 @@ structure_db = {
 }
 
 # ============================================================
-# SIDEBAR
-# ============================================================
-
 with st.sidebar:
-
     st.title("⚙ Solar Inputs")
 
-    country = st.selectbox(
-        "Country",
-        sorted(countries_db.keys())
-    )
-
+    country = st.selectbox("Country", sorted(countries_db.keys()))
     country_data = countries_db[country]
-
     st.divider()
 
-    weather_enabled = st.toggle(
-        "Use Live Weather",
-        value=False
-    )
-
+    weather_enabled = st.toggle("Use Live Weather", value=False)
     if weather_enabled:
-
-        st.info(
-            "Location permission required"
-        )
-
+        st.info("Location permission required")
     st.divider()
 
-    panel_type = st.selectbox(
-        "Solar Panel",
-        list(panel_db.keys())
-    )
-
-    panel_qty = st.number_input(
-        "Panel Quantity",
-        min_value=1,
-        max_value=5000,
-        value=20
-    )
-
+    panel_type = st.selectbox("Solar Panel", list(panel_db.keys()))
+    panel_qty = st.number_input("Panel Quantity", min_value=1, max_value=5000, value=20)
     st.divider()
 
-    inverter_type = st.selectbox(
-        "Inverter",
-        list(inverter_db.keys())
-    )
-
+    inverter_type = st.selectbox("Inverter", list(inverter_db.keys()))
     st.divider()
 
-    battery_type = st.selectbox(
-        "Battery",
-        list(battery_db.keys())
-    )
-
+    battery_type = st.selectbox("Battery", list(battery_db.keys()))
     if battery_type != "No Battery":
-
-        battery_capacity = st.number_input(
-            "Battery Capacity (kWh)",
-            value=20.0
-        )
-
-        battery_dod = st.slider(
-            "Battery DoD %",
-            50,
-            95,
-            85
-        )
-
+        battery_capacity = st.number_input("Battery Capacity (kWh)", value=20.0)
+        battery_dod = st.slider("Battery DoD %", 50, 95, 85)
     else:
-
         battery_capacity = 0
         battery_dod = 0
-
     st.divider()
 
-    daily_load = st.number_input(
-        "Daily Load (kWh)",
-        value=50.0
-    )
-
+    daily_load = st.number_input("Daily Load (kWh)", value=50.0)
     st.divider()
 
-    tilt = st.slider(
-        "Tilt Angle",
-        0,
-        60,
-        25
-    )
-
-    azimuth = st.slider(
-        "Azimuth",
-        -180,
-        180,
-        0
-    )
-
+    tilt = st.slider("Tilt Angle", 0, 60, 25)
+    azimuth = st.slider("Azimuth", -180, 180, 0)
     st.divider()
 
-    tax_rate = st.slider(
-        "Tax %",
-        0,
-        30,
-        17
-    )
+    tax_rate = st.slider("Tax %", 0, 30, 17)
 
 # ============================================================
 # COUNTRY VALUES
 # ============================================================
-
 lat = country_data["Latitude"]
 currency = country_data["Currency"]
 buy_rate = country_data["BuyRate"]
@@ -1536,53 +1466,29 @@ wind_zone = country_data["WindZone"]
 # ============================================================
 # LOCATION
 # ============================================================
-
-latitude, longitude, location_name = (
-    get_country_location(
-        country,
-        lat
-    )
-)
+latitude, longitude, location_name = get_country_location(country, lat)
 
 # ============================================================
 # WEATHER
 # ============================================================
-
 cloud = 20
 temperature = 25
-
 weekly_forecast = []
+weekly_output = []  # Explicitly initialized to prevent structural reference errors
 
 if weather_enabled:
-
-    weather = get_live_weather(
-        latitude,
-        longitude
-    )
-
+    weather = get_live_weather(latitude, longitude)
     if weather:
-
         temperature = weather["temperature"]
         cloud = weather["cloud"]
         wind_speed = weather["wind"]
-
-        weekly_forecast = get_week_forecast(
-            latitude,
-            longitude
-        )
+        weekly_forecast = get_week_forecast(latitude, longitude)
 
 # ============================================================
-# END PART 3
-# ============================================================
-# ============================================================
-# PART 4 OF 6
 # SOLAR CALCULATION ENGINE
 # ============================================================
 
-# ------------------------------------------------------------
-# PANEL DATA
-# ------------------------------------------------------------
-
+# PANEL DATA -------------------------------------------------
 panel_efficiency = panel_db[panel_type][0]
 panel_cost = panel_db[panel_type][1]
 panel_voc = panel_db[panel_type][2]
@@ -1590,1428 +1496,366 @@ panel_temp_coeff = panel_db[panel_type][3]
 panel_power = panel_db[panel_type][4]
 panel_isc = panel_db[panel_type][5]
 
-# ------------------------------------------------------------
-# BATTERY DATA
-# ------------------------------------------------------------
-
+# BATTERY DATA -----------------------------------------------
 battery_eff = battery_db[battery_type][0]
 battery_cycles = battery_db[battery_type][1]
 battery_cost_per_kwh = battery_db[battery_type][2]
 
-# ------------------------------------------------------------
-# INVERTER DATA
-# ------------------------------------------------------------
-
+# INVERTER DATA ----------------------------------------------
 inv_eff = inverter_db[inverter_type][0]
 inv_factor = inverter_db[inverter_type][1]
 inv_cost_per_kw = inverter_db[inverter_type][2]
 
-# ============================================================
-# WEATHER CORRECTIONS
-# ============================================================
+# WEATHER CORRECTIONS ----------------------------------------
+cloud_factor = max(0.35, 1 - (cloud / 100) * 0.55)
+temp_factor = max(0.70, 1 - ((temperature - 25) * abs(panel_temp_coeff) / 100))
+weather_factor = cloud_factor * temp_factor
 
-cloud_factor = max(
-    0.35,
-    1 - (cloud / 100) * 0.55
-)
+# SOLAR ARRAY SIZE -------------------------------------------
+system_size_kw = (panel_qty * panel_power) / 1000
 
-temp_factor = max(
-    0.70,
-    1 - (
-        (temperature - 25)
-        *
-        abs(panel_temp_coeff)
-        / 100
-    )
-)
+# GENERATION METRICS -----------------------------------------
+daily_generation = system_size_kw * ghi * weather_factor * (inv_eff / 100)
+annual_generation = daily_generation * 365
 
-weather_factor = (
-    cloud_factor
-    *
-    temp_factor
-)
-
-# ============================================================
-# SOLAR ARRAY SIZE
-# ============================================================
-
-system_size_kw = (
-    panel_qty
-    *
-    panel_power
-) / 1000
-
-# ============================================================
-# DAILY GENERATION
-# ============================================================
-
-daily_generation = (
-
-    system_size_kw
-
-    *
-
-    ghi
-
-    *
-
-    weather_factor
-
-    *
-
-    (inv_eff / 100)
-
-)
-
-# ============================================================
-# ANNUAL GENERATION
-# ============================================================
-
-annual_generation = (
-    daily_generation
-    *
-    365
-)
-
-# ============================================================
-# WEEKLY OUTPUT FORECAST
-# ============================================================
-
-weekly_output = []
-
+# WEEKLY OUTPUT FORECAST -------------------------------------
 if weather_enabled and weekly_forecast:
-
     for day in weekly_forecast:
-
         c = day["Cloud"]
-
-        cloud_adj = max(
-            0.35,
-            1 - (c / 100) * 0.55
-        )
-
-        gen = (
-            system_size_kw
-            *
-            ghi
-            *
-            cloud_adj
-            *
-            (inv_eff / 100)
-        )
-
+        cloud_adj = max(0.35, 1 - (c / 100) * 0.55)
+        gen = system_size_kw * ghi * cloud_adj * (inv_eff / 100)
         weekly_output.append({
-
-            "Date":
-            day["Date"],
-
-            "Generation":
-            round(gen,2)
-
+            "Date": day["Date"],
+            "Generation": round(gen, 2)
         })
 
-# ============================================================
-# ENERGY BALANCE
-# ============================================================
+# ENERGY BALANCE ---------------------------------------------
+net_energy = daily_generation - daily_load
+coverage_percent = (daily_generation / max(daily_load, 1)) * 100
 
-net_energy = (
-    daily_generation
-    -
-    daily_load
-)
-
-coverage_percent = (
-
-    daily_generation
-
-    /
-
-    max(
-        daily_load,
-        1
-    )
-
-) * 100
-
-# ============================================================
-# BATTERY ENGINE
-# ============================================================
-
-has_battery = (
-    battery_type
-    !=
-    "No Battery"
-)
-
+# BATTERY ENGINE ---------------------------------------------
+has_battery = (battery_type != "No Battery")
 usable_battery = 0
-
 backup_hours = 0
 
 if has_battery:
+    usable_battery = battery_capacity * (battery_dod / 100) * (battery_eff / 100)
+    backup_hours = usable_battery / max(daily_load / 24, 0.1)
 
-    usable_battery = (
+# INVERTER SIZING --------------------------------------------
+recommended_inverter = system_size_kw * inv_factor
 
-        battery_capacity
+# STRING DESIGN ----------------------------------------------
+panels_per_string = max(1, int(1000 / panel_voc))
+strings = max(1, math.ceil(panel_qty / panels_per_string))
+voc_string = panel_voc * panels_per_string
+isc_string = panel_isc * strings
+mppt_voltage = voc_string * 0.82
 
-        *
+# WIND ANALYSIS ----------------------------------------------
+wind_pressure = 0.613 * (wind_speed / 3.6) ** 2
+panel_area = panel_qty * 2.3
+wind_force = wind_pressure * panel_area
 
-        (battery_dod / 100)
-
-        *
-
-        (battery_eff / 100)
-
-    )
-
-    backup_hours = (
-
-        usable_battery
-
-        /
-
-        max(
-            daily_load / 24,
-            0.1
-        )
-
-    )
-
-# ============================================================
-# INVERTER SIZING
-# ============================================================
-
-recommended_inverter = (
-
-    system_size_kw
-
-    *
-
-    inv_factor
-
-)
-
-# ============================================================
-# STRING DESIGN
-# ============================================================
-
-panels_per_string = max(
-
-    1,
-
-    int(
-        1000
-        /
-        panel_voc
-    )
-
-)
-
-strings = max(
-
-    1,
-
-    math.ceil(
-        panel_qty
-        /
-        panels_per_string
-    )
-
-)
-
-voc_string = (
-    panel_voc
-    *
-    panels_per_string
-)
-
-isc_string = (
-    panel_isc
-    *
-    strings
-)
-
-mppt_voltage = (
-    voc_string
-    *
-    0.82
-)
-
-# ============================================================
-# WIND ANALYSIS
-# ============================================================
-
-wind_pressure = (
-
-    0.613
-
-    *
-
-    (
-        wind_speed
-        /
-        3.6
-    ) ** 2
-
-)
-
-panel_area = (
-    panel_qty
-    *
-    2.3
-)
-
-wind_force = (
-    wind_pressure
-    *
-    panel_area
-)
-
-# ============================================================
-# STRUCTURE TYPE
-# ============================================================
-
+# STRUCTURE TYPE ---------------------------------------------
 if wind_zone in structure_db:
-
-    structure_type = (
-        structure_db
-        [wind_zone]
-        ["type"]
-    )
-
+    structure_type = structure_db[wind_zone]["type"]
 else:
+    structure_type = "Standard"
 
-    structure_type = (
-        "Standard"
-    )
-
-# ============================================================
-# CARBON SAVINGS
-# ============================================================
-
+# CARBON SAVINGS ---------------------------------------------
 co2_factor = 0.45
+annual_co2_saved = (annual_generation * co2_factor) / 1000
+trees_equivalent = annual_co2_saved * 45
 
-annual_co2_saved = (
+# NET METERING -----------------------------------------------
+surplus_daily = max(0, daily_generation - daily_load)
+surplus_annual = surplus_daily * 365
+annual_export_income = surplus_annual * sell_rate
 
-    annual_generation
+# FINANCIAL ENGINE -------------------------------------------
+panel_cost_total = panel_qty * panel_cost
+battery_cost_total = battery_capacity * battery_cost_per_kwh
+inverter_cost_total = recommended_inverter * inv_cost_per_kw
 
-    *
+subtotal = panel_cost_total + battery_cost_total + inverter_cost_total
+tax_amount = subtotal * tax_rate / 100
+total_cost = subtotal + tax_amount
 
-    co2_factor
-
-) / 1000
-
-trees_equivalent = (
-    annual_co2_saved
-    *
-    45
-)
-
-# ============================================================
-# NET METERING
-# ============================================================
-
-surplus_daily = max(
-    0,
-    daily_generation - daily_load
-)
-
-surplus_annual = (
-    surplus_daily
-    *
-    365
-)
-
-annual_export_income = (
-
-    surplus_annual
-
-    *
-
-    sell_rate
-
-)
-
-# ============================================================
-# FINANCIAL ENGINE
-# ============================================================
-
-panel_cost_total = (
-    panel_qty
-    *
-    panel_cost
-)
-
-battery_cost_total = (
-
-    battery_capacity
-
-    *
-
-    battery_cost_per_kwh
-
-)
-
-inverter_cost_total = (
-
-    recommended_inverter
-
-    *
-
-    inv_cost_per_kw
-
-)
-
-subtotal = (
-
-    panel_cost_total
-
-    +
-
-    battery_cost_total
-
-    +
-
-    inverter_cost_total
-
-)
-
-tax_amount = (
-    subtotal
-    *
-    tax_rate
-    / 100
-)
-
-total_cost = (
-    subtotal
-    +
-    tax_amount
-)
-
-annual_savings = (
-
-    min(
-        daily_generation,
-        daily_load
-    )
-
-    *
-
-    365
-
-    *
-
-    buy_rate
-
-)
-
-annual_profit = (
-
-    annual_savings
-
-    +
-
-    annual_export_income
-
-)
+annual_savings = min(daily_generation, daily_load) * 365 * buy_rate
+annual_profit = annual_savings + annual_export_income
 
 if annual_profit > 0:
-
-    payback_years = (
-        total_cost
-        /
-        annual_profit
-    )
-
+    payback_years = total_cost / annual_profit
 else:
-
     payback_years = 999
 
-# ============================================================
-# AI SYSTEM SCORE
-# ============================================================
-
+# AI SYSTEM SCORE --------------------------------------------
 score = 100
+if coverage_percent < 100: score -= 20
+if cloud > 70: score -= 10
+if payback_years > 8: score -= 15
+if wind_speed > 80: score -= 5
 
-if coverage_percent < 100:
-    score -= 20
+system_score = max(0, min(100, round(score)))
 
-if cloud > 70:
-    score -= 10
-
-if payback_years > 8:
-    score -= 15
-
-if wind_speed > 80:
-    score -= 5
-
-system_score = max(
-    0,
-    min(
-        100,
-        round(score)
-    )
-)
-
-# ============================================================
-# RECOMMENDATIONS
-# ============================================================
-
+# RECOMMENDATIONS --------------------------------------------
 recommendations = []
-
 if coverage_percent < 100:
-
-    recommendations.append(
-        "Increase solar panel quantity."
-    )
-
+    recommendations.append("Increase solar panel quantity.")
 if payback_years > 8:
-
-    recommendations.append(
-        "Reduce system cost or improve self-consumption."
-    )
-
+    recommendations.append("Reduce system cost or improve self-consumption.")
 if wind_speed > 80:
-
-    recommendations.append(
-        "Use cyclone-rated mounting structure."
-    )
-
+    recommendations.append("Use cyclone-rated mounting structure.")
 if battery_type == "No Battery":
-
-    recommendations.append(
-        "Battery backup recommended."
-    )
-
+    recommendations.append("Battery backup recommended.")
 if not recommendations:
-
-    recommendations.append(
-        "System configuration looks good."
-    )
+    recommendations.append("System configuration looks good.")
 
 # ============================================================
-# END PART 4
-# ============================================================
-# ============================================================
-# ============================================================
-# PART 5 OF 6
 # ADVANCED FINANCIAL ENGINE
 # ============================================================
-
-# ------------------------------------------------------------
-# PROJECT LIFE
-# ------------------------------------------------------------
-
 project_life = 25
-
 panel_degradation = 0.55
-
 discount_rate = 8.0
-
 inflation_rate = 5.0
-
 electricity_growth = 4.0
 
-# ============================================================
-# YEARLY FORECAST
-# ============================================================
-
+# YEARLY FORECAST --------------------------------------------
 yearly_forecast = []
-
-current_generation = annual_generation
-
 for year in range(1, project_life + 1):
-
-    degradation_factor = (
-
-        1
-        -
-        (
-            panel_degradation
-            / 100
-            * year
-        )
-
-    )
-
-    degradation_factor = max(
-        0.75,
-        degradation_factor
-    )
-
-    yearly_energy = (
-        annual_generation
-        *
-        degradation_factor
-    )
-
-    future_buy_rate = (
-
-        buy_rate
-
-        *
-
-        (
-            1
-            +
-            electricity_growth
-            / 100
-        ) ** year
-
-    )
-
-    yearly_saving = (
-        yearly_energy
-        *
-        future_buy_rate
-    )
+    degradation_factor = max(0.75, 1 - (panel_degradation / 100 * year))
+    yearly_energy = annual_generation * degradation_factor
+    future_buy_rate = buy_rate * (1 + electricity_growth / 100) ** year
+    yearly_saving = yearly_energy * future_buy_rate
 
     yearly_forecast.append({
-
-        "Year":year,
-        "Energy":round(yearly_energy,2),
-        "Tariff":round(future_buy_rate,4),
-        "Saving":round(yearly_saving,2)
-
+        "Year": year,
+        "Energy": round(yearly_energy, 2),
+        "Tariff": round(future_buy_rate, 4),
+        "Saving": round(yearly_saving, 2)
     })
 
-# ============================================================
-# NPV
-# ============================================================
-
+# NPV --------------------------------------------------------
 npv = -total_cost
-
 for row in yearly_forecast:
-
     cashflow = row["Saving"]
+    npv += cashflow / ((1 + discount_rate / 100) ** row["Year"])
 
-    npv += (
+# ROI --------------------------------------------------------
+total_lifetime_profit = sum(row["Saving"] for row in yearly_forecast)
+roi = ((total_lifetime_profit - total_cost) / max(total_cost, 1)) * 100
 
-        cashflow
+# SIMPLE IRR ESTIMATION --------------------------------------
+irr = (annual_profit / total_cost * 100) if total_cost > 0 else 0
 
-        /
-
-        (
-            (
-                1
-                +
-                discount_rate
-                / 100
-            )
-            **
-            row["Year"]
-        )
-
-    )
-
-# ============================================================
-# ROI
-# ============================================================
-
-total_lifetime_profit = 0
-
-for row in yearly_forecast:
-
-    total_lifetime_profit += row["Saving"]
-
-roi = (
-
-    (
-        total_lifetime_profit
-        -
-        total_cost
-    )
-
-    /
-
-    max(
-        total_cost,
-        1
-    )
-
-) * 100
-
-# ============================================================
-# SIMPLE IRR ESTIMATION
-# ============================================================
-
-irr = 0
-
-if total_cost > 0:
-
-    irr = (
-
-        annual_profit
-
-        /
-
-        total_cost
-
-    ) * 100
-
-# ============================================================
-# MONTHLY GENERATION MODEL
-# ============================================================
-
+# MONTHLY GENERATION MODEL -----------------------------------
 monthly_factors = {
-
-    "Jan":0.75,
-    "Feb":0.82,
-    "Mar":0.93,
-    "Apr":1.02,
-    "May":1.10,
-    "Jun":1.15,
-    "Jul":1.08,
-    "Aug":1.04,
-    "Sep":0.97,
-    "Oct":0.90,
-    "Nov":0.80,
-    "Dec":0.72
-
+    "Jan": 0.75, "Feb": 0.82, "Mar": 0.93, "Apr": 1.02, "May": 1.10, "Jun": 1.15,
+    "Jul": 1.08, "Aug": 1.04, "Sep": 0.97, "Oct": 0.90, "Nov": 0.80, "Dec": 0.72
 }
-
 monthly_generation = []
-
-for month,factor in monthly_factors.items():
-
+for month, factor in monthly_factors.items():
     monthly_generation.append({
-
-        "Month":month,
-
-        "Generation":
-
-        round(
-            annual_generation
-            / 12
-            *
-            factor,
-            2
-        )
-
+        "Month": month,
+        "Generation": round(annual_generation / 12 * factor, 2)
     })
 
-# ============================================================
-# WEATHER RISK SCORE
-# ============================================================
-
+# WEATHER RISK SCORE -----------------------------------------
 weather_risk = 0
+if cloud > 70: weather_risk += 25
+elif cloud > 50: weather_risk += 15
+if wind_speed > 80: weather_risk += 25
+elif wind_speed > 60: weather_risk += 15
+if temperature > 45: weather_risk += 15
+weather_risk = min(weather_risk, 100)
 
-if cloud > 70:
-    weather_risk += 25
+# PERFORMANCE RATIO ------------------------------------------
+performance_ratio = round((daily_generation / max(system_size_kw * ghi, 1)) * 100, 2)
 
-elif cloud > 50:
-    weather_risk += 15
-
-if wind_speed > 80:
-    weather_risk += 25
-
-elif wind_speed > 60:
-    weather_risk += 15
-
-if temperature > 45:
-    weather_risk += 15
-
-weather_risk = min(
-    weather_risk,
-    100
-)
-
-# ============================================================
-# PERFORMANCE RATIO
-# ============================================================
-
-performance_ratio = (
-
-    daily_generation
-
-    /
-
-    max(
-        system_size_kw
-        *
-        ghi,
-        1
-    )
-
-) * 100
-
-performance_ratio = round(
-    performance_ratio,
-    2
-)
-
-# ============================================================
-# MAINTENANCE PLAN
-# ============================================================
-
+# MAINTENANCE PLAN -------------------------------------------
 maintenance_schedule = [
-
-    {
-        "Task":"Panel Cleaning",
-        "Frequency":"Monthly"
-    },
-
-    {
-        "Task":"Cable Inspection",
-        "Frequency":"Quarterly"
-    },
-
-    {
-        "Task":"Inverter Check",
-        "Frequency":"6 Months"
-    },
-
-    {
-        "Task":"Structure Inspection",
-        "Frequency":"Yearly"
-    },
-
-    {
-        "Task":"Performance Audit",
-        "Frequency":"Yearly"
-    }
-
+    {"Task": "Panel Cleaning", "Frequency": "Monthly"},
+    {"Task": "Cable Inspection", "Frequency": "Quarterly"},
+    {"Task": "Inverter Check", "Frequency": "6 Months"},
+    {"Task": "Structure Inspection", "Frequency": "Yearly"},
+    {"Task": "Performance Audit", "Frequency": "Yearly"}
 ]
 
-# ============================================================
-# AI RECOMMENDATION ENGINE PRO
-# ============================================================
-
+# AI RECOMMENDATION ENGINE PRO -------------------------------
 ai_advice = []
+if performance_ratio < 75: ai_advice.append("Low performance ratio detected.")
+if weather_risk > 50: ai_advice.append("High weather risk environment.")
+if payback_years > 7: ai_advice.append("Improve self-consumption for faster payback.")
+if annual_co2_saved > 5: ai_advice.append("Excellent environmental impact.")
+if backup_hours < 6 and has_battery: ai_advice.append("Battery capacity may be insufficient.")
+if system_score > 90: ai_advice.append("System health is excellent.")
+if not ai_advice: ai_advice.append("Configuration appears balanced.")
 
-if performance_ratio < 75:
-
-    ai_advice.append(
-        "Low performance ratio detected."
-    )
-
-if weather_risk > 50:
-
-    ai_advice.append(
-        "High weather risk environment."
-    )
-
-if payback_years > 7:
-
-    ai_advice.append(
-        "Improve self-consumption for faster payback."
-    )
-
-if annual_co2_saved > 5:
-
-    ai_advice.append(
-        "Excellent environmental impact."
-    )
-
-if backup_hours < 6 and has_battery:
-
-    ai_advice.append(
-        "Battery capacity may be insufficient."
-    )
-
-if system_score > 90:
-
-    ai_advice.append(
-        "System health is excellent."
-    )
-
-if len(ai_advice) == 0:
-
-    ai_advice.append(
-        "Configuration appears balanced."
-    )
-
-# ============================================================
-# ENERGY SECURITY SCORE
-# ============================================================
-
+# ENERGY SECURITY SCORE --------------------------------------
 energy_security_score = 50
+if coverage_percent >= 100: energy_security_score += 25
+if has_battery: energy_security_score += 15
+if backup_hours > 12: energy_security_score += 10
+energy_security_score = min(energy_security_score, 100)
 
-if coverage_percent >= 100:
-    energy_security_score += 25
+# ESG SCORE --------------------------------------------------
+esg_score = round((system_score + energy_security_score + min(annual_co2_saved * 5, 100)) / 3, 1)
+if esg_score >= 85: esg_rating = "AAA"
+elif esg_score >= 70: esg_rating = "AA"
+elif esg_score >= 55: esg_rating = "A"
+else: esg_rating = "BBB"
 
-if has_battery:
-    energy_security_score += 15
+# LIFETIME METRICS -------------------------------------------
+lifetime_energy = sum(row["Energy"] for row in yearly_forecast)
+health_index = round((performance_ratio + system_score) / 2, 1)
 
-if backup_hours > 12:
-    energy_security_score += 10
-
-energy_security_score = min(
-    energy_security_score,
-    100
-)
-
-# ============================================================
-# ESG SCORE
-# ============================================================
-
-esg_score = round(
-
-    (
-        system_score
-        +
-        energy_security_score
-        +
-        min(
-            annual_co2_saved * 5,
-            100
-        )
-    )
-
-    / 3,
-
-    1
-
-)
-
-if esg_score >= 85:
-    esg_rating = "AAA"
-
-elif esg_score >= 70:
-    esg_rating = "AA"
-
-elif esg_score >= 55:
-    esg_rating = "A"
-
-else:
-    esg_rating = "BBB"
-
-# ============================================================
-# LIFETIME ENERGY
-# ============================================================
-
-lifetime_energy = 0
-
-for row in yearly_forecast:
-
-    lifetime_energy += row["Energy"]
-
-# ============================================================
-# SYSTEM HEALTH INDEX
-# ============================================================
-
-health_index = round(
-
-    (
-        performance_ratio
-        +
-        system_score
-    ) / 2,
-
-    1
-
-)
-
-# ============================================================
-# SMART ALERTS
-# ============================================================
-
+# SMART ALERTS -----------------------------------------------
 alerts = []
-
-if weather_risk > 50:
-
-    alerts.append(
-        "⚠ Severe weather conditions detected."
-    )
-
-if coverage_percent < 100:
-
-    alerts.append(
-        "⚠ Solar generation below load demand."
-    )
-
-if payback_years > 10:
-
-    alerts.append(
-        "⚠ Long payback period."
-    )
-
-if health_index < 70:
-
-    alerts.append(
-        "⚠ System health requires attention."
-    )
+if weather_risk > 50: alerts.append("⚠ Severe weather conditions detected.")
+if coverage_percent < 100: alerts.append("⚠ Solar generation below load demand.")
+if payback_years > 10: alerts.append("⚠ Long payback period.")
+if health_index < 70: alerts.append("⚠ System health requires attention.")
 
 # ============================================================
-# PART 5 END
+# EXECUTIVE DASHBOARD (UI RENDERING)
 # ============================================================
-# ============================================================
-# PART 6 OF 6
-# EXECUTIVE DASHBOARD
-# ============================================================
-
 st.markdown("---")
 
-# ============================================================
-# HEADER CARD
-# ============================================================
-
 st.markdown(
-f"""
-<div class='info-card'>
-<h2>Solar Power Estimator Pro Ultimate</h2>
-<b>Country:</b> {country}<br>
-<b>Currency:</b> {currency}<br>
-<b>Grid:</b> {grid_voltage}V / {grid_frequency}Hz<br>
-<b>ESG Rating:</b> {esg_rating}
-</div>
-""",
-unsafe_allow_html=True
+    f"""
+    <div class='info-card'>
+    <h2>Solar Power Estimator Pro Ultimate</h2>
+    <b>Country:</b> {country}<br>
+    <b>Currency:</b> {currency}<br>
+    <b>Grid:</b> {grid_voltage}V / {grid_frequency}Hz<br>
+    <b>ESG Rating:</b> {esg_rating}
+    </div>
+    """,
+    unsafe_allow_html=True
 )
 
-# ============================================================
-# KPI SECTION
-# ============================================================
+# KPI Section
+k1, k2, k3, k4 = st.columns(4)
+k1.metric("Daily Generation", f"{daily_generation:.2f} kWh")
+k2.metric("Annual Generation", f"{annual_generation:,.0f} kWh")
+k3.metric("Annual Profit", f"{annual_profit:,.0f} {currency}")
+k4.metric("Payback", f"{payback_years:.1f} Years")
 
-k1,k2,k3,k4 = st.columns(4)
-
-with k1:
-    st.metric(
-        "Daily Generation",
-        f"{daily_generation:.2f} kWh"
-    )
-
-with k2:
-    st.metric(
-        "Annual Generation",
-        f"{annual_generation:,.0f} kWh"
-    )
-
-with k3:
-    st.metric(
-        "Annual Profit",
-        f"{annual_profit:,.0f} {currency}"
-    )
-
-with k4:
-    st.metric(
-        "Payback",
-        f"{payback_years:.1f} Years"
-    )
-
-# ============================================================
-# TABS
-# ============================================================
-
-tab1,tab2,tab3,tab4,tab5,tab6 = st.tabs([
-
-    "Summary",
-    "Weather",
-    "Technical",
-    "Financial",
-    "AI Insights",
-    "Export"
-
+# Tabs Setup
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    "Summary", "Weather", "Technical", "Financial", "AI Insights", "Export"
 ])
 
-# ============================================================
-# SUMMARY TAB
-# ============================================================
-
+# SUMMARY TAB ------------------------------------------------
 with tab1:
-
     st.subheader("System Summary")
-
-    c1,c2 = st.columns(2)
-
+    c1, c2 = st.columns(2)
     with c1:
-
-        st.info(
-            f"System Size: {system_size_kw:.2f} kW"
-        )
-
-        st.info(
-            f"Panel Quantity: {panel_qty}"
-        )
-
-        st.info(
-            f"Panel Type: {panel_type}"
-        )
-
-        st.info(
-            f"Inverter: {inverter_type}"
-        )
-
+        st.info(f"System Size: {system_size_kw:.2f} kW")
+        st.info(f"Panel Quantity: {panel_qty}")
+        st.info(f"Panel Type: {panel_type}")
+        st.info(f"Inverter: {inverter_type}")
     with c2:
-
-        st.info(
-            f"Battery: {battery_type}"
-        )
-
-        st.info(
-            f"Coverage: {coverage_percent:.1f}%"
-        )
-
-        st.info(
-            f"System Score: {system_score}"
-        )
-
-        st.info(
-            f"Health Index: {health_index}"
-        )
-
-    # Energy Chart
+        st.info(f"Battery: {battery_type}")
+        st.info(f"Coverage: {coverage_percent:.1f}%")
+        st.info(f"System Score: {system_score}")
+        st.info(f"Health Index: {health_index}")
 
     energy_fig = go.Figure()
+    energy_fig.add_bar(name="Generation", x=["Daily"], y=[daily_generation])
+    energy_fig.add_bar(name="Load", x=["Daily"], y=[daily_load])
+    st.plotly_chart(energy_fig, use_container_width=True)
 
-    energy_fig.add_bar(
-        name="Generation",
-        x=["Daily"],
-        y=[daily_generation]
-    )
-
-    energy_fig.add_bar(
-        name="Load",
-        x=["Daily"],
-        y=[daily_load]
-    )
-
-    st.plotly_chart(
-        energy_fig,
-        use_container_width=True
-    )
-
-# ============================================================
-# WEATHER TAB
-# ============================================================
-
+# WEATHER TAB ------------------------------------------------
 with tab2:
-
     st.subheader("Weather Overview")
-
-    w1,w2,w3 = st.columns(3)
-
-    with w1:
-        st.metric(
-            "Temperature",
-            f"{temperature:.1f} °C"
-        )
-
-    with w2:
-        st.metric(
-            "Cloud",
-            f"{cloud:.0f}%"
-        )
-
-    with w3:
-        st.metric(
-            "Wind",
-            f"{wind_speed:.1f} km/h"
-        )
+    w1, w2, w3 = st.columns(3)
+    w1.metric("Temperature", f"{temperature:.1f} °C")
+    w2.metric("Cloud", f"{cloud:.0f}%")
+    w3.metric("Wind", f"{wind_speed:.1f} km/h")
 
     if weekly_forecast:
+        st.subheader("7 Day Forecast")
+        st.dataframe(pd.DataFrame(weekly_forecast), use_container_width=True)
 
-        st.subheader(
-            "7 Day Forecast"
-        )
-
-        forecast_df = pd.DataFrame(
-            weekly_forecast
-        )
-
-        st.dataframe(
-            forecast_df,
-            use_container_width=True
-        )
-
-# ============================================================
-# TECHNICAL TAB
-# ============================================================
-
+# TECHNICAL TAB ----------------------------------------------
 with tab3:
-
     technical_df = pd.DataFrame({
-
-        "Parameter":[
-            "System Size",
-            "Strings",
-            "Panels/String",
-            "String Voc",
-            "String Isc",
-            "MPPT Voltage",
-            "Wind Force",
-            "Structure"
-        ],
-
-        "Value":[
-            f"{system_size_kw:.2f} kW",
-            strings,
-            panels_per_string,
-            f"{voc_string:.1f} V",
-            f"{isc_string:.1f} A",
-            f"{mppt_voltage:.1f} V",
-            f"{wind_force:.1f} N",
-            structure_type
-        ]
-
+        "Parameter": ["System Size", "Strings", "Panels/String", "String Voc", "String Isc", "MPPT Voltage", "Wind Force", "Structure"],
+        "Value": [f"{system_size_kw:.2f} kW", strings, panels_per_string, f"{voc_string:.1f} V", f"{isc_string:.1f} A", f"{mppt_voltage:.1f} V", f"{wind_force:.1f} N", structure_type]
     })
-
-    st.dataframe(
-        technical_df,
-        use_container_width=True
-    )
+    st.dataframe(technical_df, use_container_width=True)
 
     if has_battery:
+        st.success(f"Usable Battery: {usable_battery:.2f} kWh")
+        st.success(f"Backup Hours: {backup_hours:.1f}")
 
-        st.success(
-            f"Usable Battery: {usable_battery:.2f} kWh"
-        )
-
-        st.success(
-            f"Backup Hours: {backup_hours:.1f}"
-        )
-
-# ============================================================
-# FINANCIAL TAB
-# ============================================================
-
+# FINANCIAL TAB ----------------------------------------------
 with tab4:
-
-    st.subheader(
-        "Financial Analysis"
-    )
-
+    st.subheader("Financial Analysis")
     finance_df = pd.DataFrame({
-
-        "Metric":[
-            "Total Cost",
-            "Annual Profit",
-            "ROI",
-            "NPV",
-            "IRR",
-            "Payback"
-        ],
-
-        "Value":[
-            round(total_cost,2),
-            round(annual_profit,2),
-            round(roi,2),
-            round(npv,2),
-            round(irr,2),
-            round(payback_years,2)
-        ]
-
+        "Metric": ["Total Cost", "Annual Profit", "ROI", "NPV", "IRR", "Payback"],
+        "Value": [round(total_cost, 2), round(annual_profit, 2), round(roi, 2), round(npv, 2), round(irr, 2), round(payback_years, 2)]
     })
-
-    st.dataframe(
-        finance_df,
-        use_container_width=True
-    )
+    st.dataframe(finance_df, use_container_width=True)
 
     pie = go.Figure()
+    pie.add_pie(labels=["Panels", "Battery", "Inverter"], values=[panel_cost_total, battery_cost_total, inverter_cost_total])
+    st.plotly_chart(pie, use_container_width=True)
 
-    pie.add_pie(
-
-        labels=[
-            "Panels",
-            "Battery",
-            "Inverter"
-        ],
-
-        values=[
-            panel_cost_total,
-            battery_cost_total,
-            inverter_cost_total
-        ]
-
-    )
-
-    st.plotly_chart(
-        pie,
-        use_container_width=True
-    )
-
-# ============================================================
-# AI TAB
-# ============================================================
-
+# AI TAB -----------------------------------------------------
 with tab5:
-
-    st.subheader(
-        "AI Recommendations"
-    )
-
+    st.subheader("AI Recommendations")
     for item in ai_advice:
-
         st.success(item)
 
-    st.subheader(
-        "Smart Alerts"
-    )
-
+    st.subheader("Smart Alerts")
     if alerts:
-
         for alert in alerts:
-
             st.warning(alert)
-
     else:
+        st.success("No alerts detected.")
 
-        st.success(
-            "No alerts detected."
-        )
+    st.subheader("Maintenance Schedule")
+    st.dataframe(pd.DataFrame(maintenance_schedule), use_container_width=True)
 
-    st.subheader(
-        "Maintenance Schedule"
-    )
-
-    maintenance_df = pd.DataFrame(
-        maintenance_schedule
-    )
-
-    st.dataframe(
-        maintenance_df,
-        use_container_width=True
-    )
-
-# ============================================================
-# EXPORT TAB
-# ============================================================
-
+# EXPORT TAB -------------------------------------------------
 with tab6:
-
-    st.subheader(
-        "Export Reports"
-    )
-
+    st.subheader("Export Reports")
     report_data = {
-
-        "Country":country,
-        "System Size":system_size_kw,
-        "Daily Generation":daily_generation,
-        "Annual Generation":annual_generation,
-        "Annual Profit":annual_profit,
-        "ROI":roi,
-        "NPV":npv,
-        "IRR":irr,
-        "Payback":payback_years,
-        "ESG":esg_rating
-
+        "Country": country, "System Size": system_size_kw, "Daily Generation": daily_generation,
+        "Annual Generation": annual_generation, "Annual Profit": annual_profit, "ROI": roi,
+        "NPV": npv, "IRR": irr, "Payback": payback_years, "ESG": esg_rating
     }
 
-    pdf_file = generate_pdf_report(
-        report_data
-    )
-
+    pdf_file = generate_pdf_report(report_data)
     if pdf_file:
+        st.download_button("Download PDF", pdf_file, file_name="solar_report.pdf", mime="application/pdf")
 
-        st.download_button(
-
-            "Download PDF",
-
-            pdf_file,
-
-            file_name=
-            "solar_report.pdf",
-
-            mime=
-            "application/pdf"
-
-        )
-
-    export_df = pd.DataFrame(
-        [report_data]
-    )
-
-    excel_file = generate_excel(
-        export_df
-    )
-
+    export_df = pd.DataFrame([report_data])
+    excel_file = generate_excel(export_df)
     st.download_button(
-
-        "Download Excel",
-
-        excel_file,
-
-        file_name=
-        "solar_report.xlsx",
-
-        mime=
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-
+        "Download Excel", excel_file, file_name="solar_report.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
-# ============================================================
-# MONTHLY CHART
-# ============================================================
+# CHARTS SECTION ---------------------------------------------
+st.subheader("Monthly Generation Forecast")
+st.plotly_chart(px.bar(pd.DataFrame(monthly_generation), x="Month", y="Generation"), use_container_width=True)
 
-st.subheader(
-    "Monthly Generation Forecast"
-)
+st.subheader("25 Year Energy Forecast")
+st.plotly_chart(px.line(pd.DataFrame(yearly_forecast), x="Year", y="Energy"), use_container_width=True)
 
-monthly_df = pd.DataFrame(
-    monthly_generation
-)
-
-monthly_chart = px.bar(
-
-    monthly_df,
-
-    x="Month",
-
-    y="Generation"
-
-)
-
-st.plotly_chart(
-    monthly_chart,
-    use_container_width=True
-)
-
-# ============================================================
-# LIFETIME CHART
-# ============================================================
-
-st.subheader(
-    "25 Year Energy Forecast"
-)
-
-forecast_df = pd.DataFrame(
-    yearly_forecast
-)
-
-life_chart = px.line(
-
-    forecast_df,
-
-    x="Year",
-
-    y="Energy"
-
-)
-
-st.plotly_chart(
-    life_chart,
-    use_container_width=True
-)
-
-# ============================================================
-# FOOTER
-# ============================================================
-
+# FOOTER -----------------------------------------------------
 st.markdown("---")
-
 st.markdown(
-f"""
-<div class='footer'>
-
-Solar Power Estimator Pro Ultimate 2026
-
-Country: {country}
-
-ESG Rating: {esg_rating}
-
-Lifetime Energy:
-{lifetime_energy:,.0f} kWh
-
-CO₂ Saved:
-{annual_co2_saved:.2f} Tons / Year
-
-</div>
-""",
-unsafe_allow_html=True
+    f"""
+    <div class='footer'>
+    Solar Power Estimator Pro Ultimate 2026<br>
+    Country: {country} | ESG Rating: {esg_rating}<br>
+    Lifetime Energy: {lifetime_energy:,.0f} kWh | CO₂ Saved: {annual_co2_saved:.2f} Tons / Year
+    </div>
+    """,
+    unsafe_allow_html=True
 )
-
-# ============================================================
-# END OF PROJECT
-# ============================================================
