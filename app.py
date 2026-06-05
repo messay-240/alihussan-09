@@ -1,1861 +1,448 @@
-# ============================================================
-# SOLAR POWER ESTIMATOR PRO ULTIMATE 2026
-# PART 1 OF 6
-# CORE SYSTEM
-# ============================================================
-
 import streamlit as st
+st.set_page_config(page_title="Solar Power Estimator Pro", layout="wide", page_icon="⚡")
+
+# --- TERMS & AGREEMENT POPUP - SAB SE PEHLE ---
+def show_terms():
+    @st.dialog("📄 Terms & Privacy Agreement")
+    def terms_dialog():
+        st.markdown("""
+        ### ⚠️ IMPORTANT DISCLAIMER
+        By using this Solar Power Estimator Pro app, you agree that:
+        1. **No Liability**: Calculations are for planning only. We are NOT responsible for any financial loss.
+        2. **Data Privacy**: We do NOT store your personal data. Location only used for weather API.
+        3. **Accuracy**: Solar generation varies ±20% due to weather, panel quality, installation.
+        4. **Professional Advice**: Consult certified solar engineer before installation.
+        By clicking "I Agree", you accept all terms.
+        """)
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("❌ I Disagree", use_container_width=True, type="secondary"):
+                st.stop()
+        with col2:
+            if st.button("✅ I Agree", use_container_width=True, type="primary"):
+                st.session_state['agreed'] = True
+                st.rerun()
+    if 'agreed' not in st.session_state:
+        terms_dialog()
+        st.stop()
+
+show_terms()
+
+# --- IMPORTS ---
 import pandas as pd
 import numpy as np
-import requests
-import plotly.graph_objects as go
-import plotly.express as px
 import math
-import json
-import time
-
-from io import BytesIO
+import plotly.graph_objects as go
 from datetime import datetime
-from datetime import timedelta
+import folium
+from streamlit_folium import st_folium
+from geopy.geocoders import Nominatim
+import requests
+from io import BytesIO
 
-# ============================================================
-# OPTIONAL LIBRARIES
-# ============================================================
-
+# --- SAFE GEOCODER + WEATHER FUNCTIONS ---
+GEO_ENABLED = False
 try:
     from geopy.geocoders import Nominatim
     GEO_ENABLED = True
 except:
-    GEO_ENABLED = False
-
-try:
-    from fpdf import FPDF
-    PDF_ENABLED = True
-except:
-    PDF_ENABLED = False
-
-try:
-    import openpyxl
-    XLSX_ENABLED = True
-except:
-    XLSX_ENABLED = False
-
-# ============================================================
-# PAGE CONFIG
-# ============================================================
-
-st.set_page_config(
-    page_title="Solar Power Estimator Pro Ultimate",
-    page_icon="⚡",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
-
-# ============================================================
-# SESSION VARIABLES
-# ============================================================
-
-defaults = {
-
-    "agreed":False,
-    "weather_enabled":False,
-    "forecast_loaded":False,
-    "report_generated":False,
-    "country":"Pakistan",
-    "theme":"Dark"
-
-}
-
-for key,val in defaults.items():
-
-    if key not in st.session_state:
-        st.session_state[key] = val
-
-# ============================================================
-# PREMIUM THEME
-# ============================================================
-
-st.markdown("""
-
-<style>
-
-html,
-body,
-[data-testid="stAppViewContainer"]{
-
-background:#0f172a;
-color:white;
-
-}
-
-.main-title{
-
-font-size:48px;
-font-weight:900;
-text-align:center;
-padding:15px;
-margin-bottom:20px;
-
-background:linear-gradient(
-90deg,
-#4f46e5,
-#06b6d4
-);
-
-border-radius:20px;
-
-}
-
-.info-card{
-
-background:#1e293b;
-
-padding:20px;
-
-border-radius:15px;
-
-margin-bottom:10px;
-
-border:1px solid #334155;
-
-}
-
-.metric-card{
-
-background:#111827;
-
-padding:15px;
-
-border-radius:15px;
-
-border-left:5px solid #3b82f6;
-
-}
-
-.footer{
-
-text-align:center;
-
-font-size:12px;
-
-color:gray;
-
-}
-
-</style>
-
-""",unsafe_allow_html=True)
-
-# ============================================================
-# TERMS AGREEMENT
-# ============================================================
-
-def agreement_dialog():
-
-    @st.dialog(
-        "Terms & Conditions"
-    )
-
-    def popup():
-
-        st.markdown("""
-
-### Solar Power Estimator Pro Ultimate
-
-Before using this software:
-
-✔ Engineering estimates only
-
-✔ Weather APIs may contain delays
-
-✔ Financial calculations are approximate
-
-✔ Use certified engineers before installation
-
-✔ No warranty implied
-
-✔ Data may vary by country
-
-""")
-
-        c1,c2 = st.columns(2)
-
-        with c1:
-
-            if st.button(
-                "Decline"
-            ):
-
-                st.stop()
-
-        with c2:
-
-            if st.button(
-                "I Agree"
-            ):
-
-                st.session_state.agreed = True
-
-                st.rerun()
-
-    if not st.session_state.agreed:
-
-        popup()
-
-        st.stop()
-
-agreement_dialog()
-
-# ============================================================
-# HEADER
-# ============================================================
-
-st.markdown("""
-
-<div class='main-title'>
-
-⚡ SOLAR POWER ESTIMATOR PRO ULTIMATE
-
-</div>
-
-""",unsafe_allow_html=True)
-
-# ============================================================
-# WEATHER ENGINE
-# ============================================================
-
-@st.cache_data(ttl=1800)
-
-def get_live_weather(
-    latitude,
-    longitude
-):
-
-    try:
-
-        url = (
-
-            "https://api.open-meteo.com/v1/forecast"
-
-            f"?latitude={latitude}"
-
-            f"&longitude={longitude}"
-
-            "&current="
-
-            "temperature_2m,"
-
-            "wind_speed_10m,"
-
-            "cloud_cover"
-
-            "&timezone=auto"
-
-        )
-
-        response = requests.get(
-            url,
-            timeout=20
-        )
-
-        data = response.json()
-
-        current = data["current"]
-
-        return {
-
-            "temperature":
-            current["temperature_2m"],
-
-            "wind":
-            current["wind_speed_10m"] * 3.6,
-
-            "cloud":
-            current["cloud_cover"]
-
-        }
-
-    except:
-
-        return None
-
-# ============================================================
-# WEEKLY FORECAST
-# ============================================================
-
-@st.cache_data(ttl=1800)
-
-def get_week_forecast(
-    latitude,
-    longitude
-):
-
-    try:
-
-        url = (
-
-            "https://api.open-meteo.com/v1/forecast"
-
-            f"?latitude={latitude}"
-
-            f"&longitude={longitude}"
-
-            "&daily="
-
-            "temperature_2m_max,"
-
-            "temperature_2m_min,"
-
-            "wind_speed_10m_max,"
-
-            "cloud_cover_mean"
-
-            "&timezone=auto"
-
-        )
-
-        response = requests.get(
-            url,
-            timeout=20
-        )
-
-        data = response.json()
-
-        daily = data["daily"]
-
-        results = []
-
-        for i in range(7):
-
-            results.append({
-
-                "Date":
-                daily["time"][i],
-
-                "Temp Max":
-                daily["temperature_2m_max"][i],
-
-                "Temp Min":
-                daily["temperature_2m_min"][i],
-
-                "Wind":
-                daily["wind_speed_10m_max"][i],
-
-                "Cloud":
-                daily["cloud_cover_mean"][i]
-
-            })
-
-        return results
-
-    except:
-
-        return []
-
-# ============================================================
-# GEOLOCATION ENGINE
-# ============================================================
+    pass
 
 @st.cache_data(ttl=86400)
-
-def get_country_location(
-    country,
-    fallback_lat
-):
-
+def safe_geocode(country_name, c_lat_fallback):
     if not GEO_ENABLED:
-
-        return (
-            fallback_lat,
-            70,
-            country
-        )
-
+        return c_lat_fallback, 70.0, country_name
     try:
-
-        geo = Nominatim(
-            user_agent=
-            "solar_estimator"
-        )
-
-        location = geo.geocode(
-            country
-        )
-
+        geolocator = Nominatim(user_agent="solarx_app_final_v3", timeout=3)
+        location = geolocator.geocode(country_name)
         if location:
-
-            return (
-
-                location.latitude,
-
-                location.longitude,
-
-                location.address.split(",")[0]
-
-            )
-
+            return location.latitude, location.longitude, location.address.split(',')[0]
+        else:
+            return c_lat_fallback, 70.0, country_name
     except:
+        return c_lat_fallback, 70.0, country_name
 
-        pass
-
-    return (
-        fallback_lat,
-        70,
-        country
-    )
-
-# ============================================================
-# PDF ENGINE
-# ============================================================
-
-def generate_pdf_report(
-    report_data
-):
-
-    if not PDF_ENABLED:
+@st.cache_data(ttl=1800)
+def get_7day_weather(lat, lon):
+    try:
+        url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&daily=temperature_2m_max,temperature_2m_min,wind_speed_10m_max,cloud_cover_mean&timezone=auto"
+        r = requests.get(url, timeout=7)
+        data = r.json()
+        daily = data['daily']
+        week_data = []
+        for i in range(7):
+            week_data.append({
+                'date': daily['time'][i],
+                'temp_max': daily['temperature_2m_max'][i],
+                'temp_min': daily['temperature_2m_min'][i],
+                'wind_max': daily['wind_speed_10m_max'][i] * 3.6,
+                'cloud': daily['cloud_cover_mean'][i]
+            })
+        return week_data
+    except:
         return None
 
-    pdf = FPDF()
-
-    pdf.add_page()
-
-    pdf.set_font(
-        "Arial",
-        size=10
-    )
-
-    pdf.cell(
-        0,
-        10,
-        "Solar Report",
-        ln=1
-    )
-
-    for k,v in report_data.items():
-
-        text = f"{k}: {v}"
-
-        text = (
-            text
-            .encode(
-                "latin-1",
-                "ignore"
-            )
-            .decode(
-                "latin-1"
-            )
-        )
-
-        pdf.cell(
-            0,
-            8,
-            text,
-            ln=1
-        )
-
-    result = pdf.output(
-        dest="S"
-    )
-
-    if isinstance(
-        result,
-        str
-    ):
-
-        result = result.encode(
-            "latin-1"
-        )
-
-    return result
-
-# ============================================================
-# EXCEL ENGINE
-# ============================================================
-
-def generate_excel(
-    dataframe
-):
-
-    excel_file = BytesIO()
-
-    with pd.ExcelWriter(
-        excel_file,
-        engine="openpyxl"
-    ) as writer:
-
-        dataframe.to_excel(
-            writer,
-            index=False
-        )
-
-    return excel_file.getvalue()
-
-# ============================================================
-# UTILITY FUNCTIONS
-# ============================================================
-
-def safe_round(x):
-
-    try:
-        return round(x,2)
-    except:
-        return 0
-
-def percentage(
-    value,
-    total
-):
-
-    if total == 0:
-        return 0
-
-    return (
-        value /
-        total
-    ) * 100
-
-def clamp(
-    value,
-    min_val,
-    max_val
-):
-
-    return max(
-        min_val,
-        min(
-            value,
-            max_val
-        )
-    )
-
-# ============================================================
-# END PART 1
-# ============================================================
-# ============================================================
-# PART 2A
-# COUNTRIES DATABASE (1-40)
-# ============================================================
-
-countries_db = {
-
-"Pakistan":{
-"Latitude":30.3,"Currency":"PKR","BuyRate":82,"SellRate":42,
-"GHI":5.3,"Voltage":220,"Frequency":50,"WindSpeed":55,
-"WindZone":"Extreme"
-},
-
-"India":{
-"Latitude":20.5,"Currency":"INR","BuyRate":12.5,"SellRate":6.2,
-"GHI":5.4,"Voltage":230,"Frequency":50,"WindSpeed":60,
-"WindZone":"Extreme"
-},
-
-"China":{
-"Latitude":35.8,"Currency":"CNY","BuyRate":0.72,"SellRate":0.42,
-"GHI":4.3,"Voltage":220,"Frequency":50,"WindSpeed":50,
-"WindZone":"High"
-},
-
-"United States":{
-"Latitude":37.0,"Currency":"USD","BuyRate":0.30,"SellRate":0.14,
-"GHI":4.8,"Voltage":120,"Frequency":60,"WindSpeed":90,
-"WindZone":"Extreme"
-},
-
-"Canada":{
-"Latitude":56.1,"Currency":"CAD","BuyRate":0.24,"SellRate":0.08,
-"GHI":3.7,"Voltage":120,"Frequency":60,"WindSpeed":80,
-"WindZone":"Extreme"
-},
-
-"United Kingdom":{
-"Latitude":55.3,"Currency":"GBP","BuyRate":0.58,"SellRate":0.22,
-"GHI":2.8,"Voltage":230,"Frequency":50,"WindSpeed":80,
-"WindZone":"Extreme"
-},
-
-"Germany":{
-"Latitude":51.1,"Currency":"EUR","BuyRate":0.48,"SellRate":0.12,
-"GHI":3.0,"Voltage":230,"Frequency":50,"WindSpeed":55,
-"WindZone":"Extreme"
-},
-
-"France":{
-"Latitude":46.2,"Currency":"EUR","BuyRate":0.34,"SellRate":0.15,
-"GHI":3.5,"Voltage":230,"Frequency":50,"WindSpeed":45,
-"WindZone":"High"
-},
-
-"Italy":{
-"Latitude":41.8,"Currency":"EUR","BuyRate":0.50,"SellRate":0.20,
-"GHI":4.2,"Voltage":230,"Frequency":50,"WindSpeed":50,
-"WindZone":"High"
-},
-
-"Spain":{
-"Latitude":40.4,"Currency":"EUR","BuyRate":0.45,"SellRate":0.22,
-"GHI":4.6,"Voltage":230,"Frequency":50,"WindSpeed":60,
-"WindZone":"Extreme"
-},
-
-"Portugal":{
-"Latitude":39.3,"Currency":"EUR","BuyRate":0.32,"SellRate":0.14,
-"GHI":4.3,"Voltage":230,"Frequency":50,"WindSpeed":55,
-"WindZone":"Extreme"
-},
-
-"Netherlands":{
-"Latitude":52.1,"Currency":"EUR","BuyRate":0.55,"SellRate":0.16,
-"GHI":2.8,"Voltage":230,"Frequency":50,"WindSpeed":85,
-"WindZone":"Extreme"
-},
-
-"Belgium":{
-"Latitude":50.5,"Currency":"EUR","BuyRate":0.52,"SellRate":0.12,
-"GHI":2.9,"Voltage":230,"Frequency":50,"WindSpeed":40,
-"WindZone":"High"
-},
-
-"Switzerland":{
-"Latitude":46.8,"Currency":"CHF","BuyRate":0.45,"SellRate":0.20,
-"GHI":3.4,"Voltage":230,"Frequency":50,"WindSpeed":40,
-"WindZone":"High"
-},
-
-"Austria":{
-"Latitude":47.5,"Currency":"EUR","BuyRate":0.45,"SellRate":0.15,
-"GHI":3.4,"Voltage":230,"Frequency":50,"WindSpeed":35,
-"WindZone":"Moderate"
-},
-
-"Norway":{
-"Latitude":60.4,"Currency":"NOK","BuyRate":2.8,"SellRate":0.9,
-"GHI":2.3,"Voltage":230,"Frequency":50,"WindSpeed":80,
-"WindZone":"Extreme"
-},
-
-"Sweden":{
-"Latitude":60.1,"Currency":"SEK","BuyRate":2.4,"SellRate":0.85,
-"GHI":2.6,"Voltage":230,"Frequency":50,"WindSpeed":75,
-"WindZone":"Extreme"
-},
-
-"Finland":{
-"Latitude":61.9,"Currency":"EUR","BuyRate":0.38,"SellRate":0.08,
-"GHI":2.5,"Voltage":230,"Frequency":50,"WindSpeed":60,
-"WindZone":"Extreme"
-},
-
-"Denmark":{
-"Latitude":56.2,"Currency":"DKK","BuyRate":2.8,"SellRate":0.65,
-"GHI":2.7,"Voltage":230,"Frequency":50,"WindSpeed":90,
-"WindZone":"Extreme"
-},
-
-"Ireland":{
-"Latitude":53.1,"Currency":"EUR","BuyRate":0.55,"SellRate":0.22,
-"GHI":2.7,"Voltage":230,"Frequency":50,"WindSpeed":95,
-"WindZone":"Extreme"
-},
-
-"Turkey":{
-"Latitude":38.9,"Currency":"TRY","BuyRate":6.5,"SellRate":3.5,
-"GHI":4.9,"Voltage":230,"Frequency":50,"WindSpeed":50,
-"WindZone":"High"
-},
-
-"Iran":{
-"Latitude":32.4,"Currency":"IRR","BuyRate":2000,"SellRate":800,
-"GHI":5.6,"Voltage":220,"Frequency":50,"WindSpeed":70,
-"WindZone":"Extreme"
-},
-
-"Iraq":{
-"Latitude":33.2,"Currency":"IQD","BuyRate":160,"SellRate":70,
-"GHI":5.8,"Voltage":220,"Frequency":50,"WindSpeed":55,
-"WindZone":"Extreme"
-},
-
-"Saudi Arabia":{
-"Latitude":23.8,"Currency":"SAR","BuyRate":0.32,"SellRate":0.15,
-"GHI":6.1,"Voltage":220,"Frequency":60,"WindSpeed":65,
-"WindZone":"Extreme"
-},
-
-"United Arab Emirates":{
-"Latitude":23.4,"Currency":"AED","BuyRate":0.48,"SellRate":0.22,
-"GHI":5.9,"Voltage":220,"Frequency":50,"WindSpeed":65,
-"WindZone":"Extreme"
-},
-
-"Qatar":{
-"Latitude":25.3,"Currency":"QAR","BuyRate":0.38,"SellRate":0.15,
-"GHI":5.9,"Voltage":240,"Frequency":50,"WindSpeed":60,
-"WindZone":"Extreme"
-},
-
-"Kuwait":{
-"Latitude":29.3,"Currency":"KWD","BuyRate":0.08,"SellRate":0.02,
-"GHI":5.9,"Voltage":240,"Frequency":50,"WindSpeed":70,
-"WindZone":"Extreme"
-},
-
-"Oman":{
-"Latitude":21.5,"Currency":"OMR","BuyRate":0.12,"SellRate":0.03,
-"GHI":6.0,"Voltage":240,"Frequency":50,"WindSpeed":65,
-"WindZone":"Extreme"
-},
-
-"Jordan":{
-"Latitude":30.5,"Currency":"JOD","BuyRate":0.18,"SellRate":0.08,
-"GHI":5.8,"Voltage":230,"Frequency":50,"WindSpeed":60,
-"WindZone":"Extreme"
-},
-
-"Egypt":{
-"Latitude":26.8,"Currency":"EGP","BuyRate":2.6,"SellRate":1.2,
-"GHI":6.1,"Voltage":220,"Frequency":50,"WindSpeed":50,
-"WindZone":"High"
-},
-
-"South Africa":{
-"Latitude":-30.5,"Currency":"ZAR","BuyRate":3.8,"SellRate":1.9,
-"GHI":5.7,"Voltage":230,"Frequency":50,"WindSpeed":60,
-"WindZone":"Extreme"
-},
-
-"Nigeria":{
-"Latitude":9.1,"Currency":"NGN","BuyRate":180,"SellRate":70,
-"GHI":5.8,"Voltage":230,"Frequency":50,"WindSpeed":40,
-"WindZone":"Moderate"
-},
-
-"Kenya":{
-"Latitude":0.1,"Currency":"KES","BuyRate":35,"SellRate":15,
-"GHI":5.9,"Voltage":240,"Frequency":50,"WindSpeed":35,
-"WindZone":"Moderate"
-},
-
-"Ethiopia":{
-"Latitude":9.1,"Currency":"ETB","BuyRate":4.2,"SellRate":1.5,
-"GHI":5.7,"Voltage":230,"Frequency":50,"WindSpeed":35,
-"WindZone":"Moderate"
-},
-
-"Morocco":{
-"Latitude":31.8,"Currency":"MAD","BuyRate":1.8,"SellRate":0.7,
-"GHI":5.5,"Voltage":220,"Frequency":50,"WindSpeed":55,
-"WindZone":"High"
-},
-
-"Algeria":{
-"Latitude":28.0,"Currency":"DZD","BuyRate":5.5,"SellRate":2.0,
-"GHI":6.0,"Voltage":230,"Frequency":50,"WindSpeed":50,
-"WindZone":"High"
-},
-
-"Tunisia":{
-"Latitude":34.0,"Currency":"TND","BuyRate":0.35,"SellRate":0.12,
-"GHI":5.6,"Voltage":230,"Frequency":50,"WindSpeed":45,
-"WindZone":"High"
-},
-
-"Libya":{
-"Latitude":27.0,"Currency":"LYD","BuyRate":0.12,"SellRate":0.04,
-"GHI":6.2,"Voltage":230,"Frequency":50,"WindSpeed":55,
-"WindZone":"High"
-},
-
-"Sudan":{
-"Latitude":15.6,"Currency":"SDG","BuyRate":90,"SellRate":30,
-"GHI":6.0,"Voltage":230,"Frequency":50,"WindSpeed":40,
-"WindZone":"Moderate"
+def calc_wind_load(wind_speed_kmh, tilt_angle, panel_qty):
+    wind_ms = wind_speed_kmh / 3.6
+    q = 0.613 * wind_ms**2
+    cp = 1.2 if tilt_angle > 30 else 0.8
+    force_per_panel = q * cp * 2.6 / 1000
+    total_force = force_per_panel * panel_qty
+    return total_force
+
+def calc_lightning_protection(building_height):
+    if building_height > 20:
+        rod_height = building_height + 2
+        radius = 20
+    else:
+        rod_height = building_height + 1.5
+        radius = 30
+    return rod_height, radius
+# --- 120+ COUNTRIES DATABASE ---
+
+    
 }
-
-}
-# ============================================================
-# PART 2B
-# COUNTRIES DATABASE (41-80)
-# ============================================================
-
-countries_db.update({
-
-"Japan":{
-"Latitude":36.2,"Currency":"JPY","BuyRate":31,"SellRate":12,
-"GHI":3.8,"Voltage":100,"Frequency":50,"WindSpeed":55,
-"WindZone":"High"
-},
-
-"South Korea":{
-"Latitude":36.5,"Currency":"KRW","BuyRate":180,"SellRate":75,
-"GHI":4.0,"Voltage":220,"Frequency":60,"WindSpeed":60,
-"WindZone":"High"
-},
-
-"North Korea":{
-"Latitude":40.3,"Currency":"KPW","BuyRate":120,"SellRate":45,
-"GHI":4.1,"Voltage":220,"Frequency":50,"WindSpeed":50,
-"WindZone":"Moderate"
-},
-
-"Australia":{
-"Latitude":-25.0,"Currency":"AUD","BuyRate":0.38,"SellRate":0.12,
-"GHI":5.8,"Voltage":230,"Frequency":50,"WindSpeed":75,
-"WindZone":"Extreme"
-},
-
-"New Zealand":{
-"Latitude":-41.0,"Currency":"NZD","BuyRate":0.34,"SellRate":0.10,
-"GHI":4.2,"Voltage":230,"Frequency":50,"WindSpeed":85,
-"WindZone":"Extreme"
-},
-
-"Russia":{
-"Latitude":61.5,"Currency":"RUB","BuyRate":7.0,"SellRate":3.0,
-"GHI":2.8,"Voltage":220,"Frequency":50,"WindSpeed":55,
-"WindZone":"High"
-},
-
-"Ukraine":{
-"Latitude":49.0,"Currency":"UAH","BuyRate":7.5,"SellRate":3.2,
-"GHI":3.4,"Voltage":230,"Frequency":50,"WindSpeed":50,
-"WindZone":"High"
-},
-
-"Poland":{
-"Latitude":52.0,"Currency":"PLN","BuyRate":1.3,"SellRate":0.5,
-"GHI":3.2,"Voltage":230,"Frequency":50,"WindSpeed":45,
-"WindZone":"Moderate"
-},
-
-"Czech Republic":{
-"Latitude":49.8,"Currency":"CZK","BuyRate":6.2,"SellRate":2.4,
-"GHI":3.1,"Voltage":230,"Frequency":50,"WindSpeed":40,
-"WindZone":"Moderate"
-},
-
-"Slovakia":{
-"Latitude":48.7,"Currency":"EUR","BuyRate":0.24,"SellRate":0.08,
-"GHI":3.2,"Voltage":230,"Frequency":50,"WindSpeed":40,
-"WindZone":"Moderate"
-},
-
-"Hungary":{
-"Latitude":47.2,"Currency":"HUF","BuyRate":92,"SellRate":35,
-"GHI":3.5,"Voltage":230,"Frequency":50,"WindSpeed":40,
-"WindZone":"Moderate"
-},
-
-"Romania":{
-"Latitude":45.9,"Currency":"RON","BuyRate":1.5,"SellRate":0.6,
-"GHI":3.8,"Voltage":230,"Frequency":50,"WindSpeed":45,
-"WindZone":"Moderate"
-},
-
-"Bulgaria":{
-"Latitude":42.7,"Currency":"BGN","BuyRate":0.40,"SellRate":0.15,
-"GHI":4.0,"Voltage":230,"Frequency":50,"WindSpeed":45,
-"WindZone":"Moderate"
-},
-
-"Greece":{
-"Latitude":39.1,"Currency":"EUR","BuyRate":0.32,"SellRate":0.14,
-"GHI":4.8,"Voltage":230,"Frequency":50,"WindSpeed":55,
-"WindZone":"High"
-},
-
-"Croatia":{
-"Latitude":45.1,"Currency":"EUR","BuyRate":0.28,"SellRate":0.10,
-"GHI":4.1,"Voltage":230,"Frequency":50,"WindSpeed":45,
-"WindZone":"Moderate"
-},
-
-"Serbia":{
-"Latitude":44.0,"Currency":"RSD","BuyRate":18,"SellRate":7,
-"GHI":4.0,"Voltage":230,"Frequency":50,"WindSpeed":40,
-"WindZone":"Moderate"
-},
-
-"Bosnia and Herzegovina":{
-"Latitude":44.2,"Currency":"BAM","BuyRate":0.36,"SellRate":0.14,
-"GHI":3.9,"Voltage":230,"Frequency":50,"WindSpeed":35,
-"WindZone":"Moderate"
-},
-
-"Slovenia":{
-"Latitude":46.1,"Currency":"EUR","BuyRate":0.26,"SellRate":0.10,
-"GHI":3.7,"Voltage":230,"Frequency":50,"WindSpeed":35,
-"WindZone":"Moderate"
-},
-
-"Albania":{
-"Latitude":41.1,"Currency":"ALL","BuyRate":11,"SellRate":4,
-"GHI":4.7,"Voltage":230,"Frequency":50,"WindSpeed":45,
-"WindZone":"Moderate"
-},
-
-"Brazil":{
-"Latitude":-14.2,"Currency":"BRL","BuyRate":0.95,"SellRate":0.40,
-"GHI":5.2,"Voltage":127,"Frequency":60,"WindSpeed":50,
-"WindZone":"High"
-},
-
-"Argentina":{
-"Latitude":-34.6,"Currency":"ARS","BuyRate":120,"SellRate":55,
-"GHI":5.0,"Voltage":220,"Frequency":50,"WindSpeed":55,
-"WindZone":"High"
-},
-
-"Chile":{
-"Latitude":-35.7,"Currency":"CLP","BuyRate":180,"SellRate":80,
-"GHI":5.8,"Voltage":220,"Frequency":50,"WindSpeed":60,
-"WindZone":"High"
-},
-
-"Peru":{
-"Latitude":-9.2,"Currency":"PEN","BuyRate":0.85,"SellRate":0.35,
-"GHI":5.4,"Voltage":220,"Frequency":60,"WindSpeed":40,
-"WindZone":"Moderate"
-},
-
-"Colombia":{
-"Latitude":4.5,"Currency":"COP","BuyRate":950,"SellRate":420,
-"GHI":4.9,"Voltage":110,"Frequency":60,"WindSpeed":35,
-"WindZone":"Moderate"
-},
-
-"Venezuela":{
-"Latitude":7.0,"Currency":"VES","BuyRate":18,"SellRate":7,
-"GHI":5.5,"Voltage":120,"Frequency":60,"WindSpeed":35,
-"WindZone":"Moderate"
-},
-
-"Mexico":{
-"Latitude":23.6,"Currency":"MXN","BuyRate":3.5,"SellRate":1.5,
-"GHI":5.5,"Voltage":127,"Frequency":60,"WindSpeed":50,
-"WindZone":"High"
-},
-
-"Guatemala":{
-"Latitude":15.7,"Currency":"GTQ","BuyRate":1.7,"SellRate":0.7,
-"GHI":5.2,"Voltage":120,"Frequency":60,"WindSpeed":35,
-"WindZone":"Moderate"
-},
-
-"Costa Rica":{
-"Latitude":9.9,"Currency":"CRC","BuyRate":120,"SellRate":45,
-"GHI":4.8,"Voltage":120,"Frequency":60,"WindSpeed":35,
-"WindZone":"Moderate"
-},
-
-"Panama":{
-"Latitude":8.5,"Currency":"PAB","BuyRate":0.25,"SellRate":0.10,
-"GHI":5.0,"Voltage":120,"Frequency":60,"WindSpeed":35,
-"WindZone":"Moderate"
-},
-
-"Cuba":{
-"Latitude":21.5,"Currency":"CUP","BuyRate":6.5,"SellRate":2.5,
-"GHI":5.1,"Voltage":110,"Frequency":60,"WindSpeed":45,
-"WindZone":"High"
-},
-
-"Dominican Republic":{
-"Latitude":18.7,"Currency":"DOP","BuyRate":11,"SellRate":4,
-"GHI":5.3,"Voltage":120,"Frequency":60,"WindSpeed":50,
-"WindZone":"High"
-},
-
-"Jamaica":{
-"Latitude":18.1,"Currency":"JMD","BuyRate":38,"SellRate":15,
-"GHI":5.4,"Voltage":110,"Frequency":50,"WindSpeed":55,
-"WindZone":"High"
-},
-
-"Bahamas":{
-"Latitude":25.0,"Currency":"BSD","BuyRate":0.32,"SellRate":0.12,
-"GHI":5.5,"Voltage":120,"Frequency":60,"WindSpeed":70,
-"WindZone":"Extreme"
-},
-
-"Indonesia":{
-"Latitude":-2.5,"Currency":"IDR","BuyRate":2400,"SellRate":1000,
-"GHI":4.8,"Voltage":230,"Frequency":50,"WindSpeed":30,
-"WindZone":"Moderate"
-},
-
-"Malaysia":{
-"Latitude":4.2,"Currency":"MYR","BuyRate":0.55,"SellRate":0.22,
-"GHI":4.9,"Voltage":240,"Frequency":50,"WindSpeed":30,
-"WindZone":"Moderate"
-},
-
-"Singapore":{
-"Latitude":1.3,"Currency":"SGD","BuyRate":0.38,"SellRate":0.16,
-"GHI":4.6,"Voltage":230,"Frequency":50,"WindSpeed":25,
-"WindZone":"Low"
-},
-
-"Thailand":{
-"Latitude":15.8,"Currency":"THB","BuyRate":4.8,"SellRate":2.0,
-"GHI":5.1,"Voltage":230,"Frequency":50,"WindSpeed":35,
-"WindZone":"Moderate"
-},
-
-"Vietnam":{
-"Latitude":14.1,"Currency":"VND","BuyRate":3200,"SellRate":1300,
-"GHI":4.8,"Voltage":220,"Frequency":50,"WindSpeed":35,
-"WindZone":"Moderate"
-},
-
-"Philippines":{
-"Latitude":12.8,"Currency":"PHP","BuyRate":12,"SellRate":5,
-"GHI":5.0,"Voltage":220,"Frequency":60,"WindSpeed":65,
-"WindZone":"Extreme"
-}
-
-})
-# ============================================================
-# PART 2C
-# COUNTRIES DATABASE (81-120+)
-# ============================================================
-
-countries_db.update({
-
-"Bangladesh":{
-"Latitude":23.7,"Currency":"BDT","BuyRate":11.5,"SellRate":5.0,
-"GHI":4.9,"Voltage":220,"Frequency":50,"WindSpeed":35,
-"WindZone":"Moderate"
-},
-
-"Sri Lanka":{
-"Latitude":7.8,"Currency":"LKR","BuyRate":55,"SellRate":25,
-"GHI":5.2,"Voltage":230,"Frequency":50,"WindSpeed":40,
-"WindZone":"Moderate"
-},
-
-"Nepal":{
-"Latitude":28.4,"Currency":"NPR","BuyRate":13,"SellRate":6,
-"GHI":5.1,"Voltage":230,"Frequency":50,"WindSpeed":30,
-"WindZone":"Moderate"
-},
-
-"Afghanistan":{
-"Latitude":33.9,"Currency":"AFN","BuyRate":8.5,"SellRate":3.5,
-"GHI":5.7,"Voltage":220,"Frequency":50,"WindSpeed":45,
-"WindZone":"High"
-},
-
-"Kazakhstan":{
-"Latitude":48.0,"Currency":"KZT","BuyRate":22,"SellRate":10,
-"GHI":4.2,"Voltage":220,"Frequency":50,"WindSpeed":70,
-"WindZone":"Extreme"
-},
-
-"Uzbekistan":{
-"Latitude":41.3,"Currency":"UZS","BuyRate":900,"SellRate":400,
-"GHI":5.5,"Voltage":220,"Frequency":50,"WindSpeed":50,
-"WindZone":"High"
-},
-
-"Turkmenistan":{
-"Latitude":38.9,"Currency":"TMT","BuyRate":0.7,"SellRate":0.3,
-"GHI":5.8,"Voltage":220,"Frequency":50,"WindSpeed":55,
-"WindZone":"High"
-},
-
-"Kyrgyzstan":{
-"Latitude":41.2,"Currency":"KGS","BuyRate":3.5,"SellRate":1.5,
-"GHI":5.0,"Voltage":220,"Frequency":50,"WindSpeed":40,
-"WindZone":"Moderate"
-},
-
-"Tajikistan":{
-"Latitude":38.8,"Currency":"TJS","BuyRate":0.9,"SellRate":0.4,
-"GHI":5.3,"Voltage":220,"Frequency":50,"WindSpeed":35,
-"WindZone":"Moderate"
-},
-
-"Azerbaijan":{
-"Latitude":40.1,"Currency":"AZN","BuyRate":0.11,"SellRate":0.05,
-"GHI":4.8,"Voltage":220,"Frequency":50,"WindSpeed":60,
-"WindZone":"High"
-},
-
-"Armenia":{
-"Latitude":40.2,"Currency":"AMD","BuyRate":45,"SellRate":18,
-"GHI":4.9,"Voltage":230,"Frequency":50,"WindSpeed":35,
-"WindZone":"Moderate"
-},
-
-"Georgia":{
-"Latitude":42.0,"Currency":"GEL","BuyRate":0.28,"SellRate":0.12,
-"GHI":4.5,"Voltage":220,"Frequency":50,"WindSpeed":40,
-"WindZone":"Moderate"
-},
-
-"Mongolia":{
-"Latitude":46.8,"Currency":"MNT","BuyRate":260,"SellRate":100,
-"GHI":5.4,"Voltage":220,"Frequency":50,"WindSpeed":75,
-"WindZone":"Extreme"
-},
-
-"Cambodia":{
-"Latitude":12.5,"Currency":"KHR","BuyRate":1000,"SellRate":450,
-"GHI":5.0,"Voltage":230,"Frequency":50,"WindSpeed":30,
-"WindZone":"Moderate"
-},
-
-"Laos":{
-"Latitude":19.8,"Currency":"LAK","BuyRate":1500,"SellRate":650,
-"GHI":4.9,"Voltage":230,"Frequency":50,"WindSpeed":30,
-"WindZone":"Moderate"
-},
-
-"Myanmar":{
-"Latitude":21.9,"Currency":"MMK","BuyRate":210,"SellRate":90,
-"GHI":5.1,"Voltage":230,"Frequency":50,"WindSpeed":35,
-"WindZone":"Moderate"
-},
-
-"Brunei":{
-"Latitude":4.5,"Currency":"BND","BuyRate":0.30,"SellRate":0.12,
-"GHI":4.7,"Voltage":240,"Frequency":50,"WindSpeed":25,
-"WindZone":"Low"
-},
-
-"Maldives":{
-"Latitude":3.2,"Currency":"MVR","BuyRate":2.8,"SellRate":1.1,
-"GHI":5.6,"Voltage":230,"Frequency":50,"WindSpeed":60,
-"WindZone":"High"
-},
-
-"Iceland":{
-"Latitude":64.9,"Currency":"ISK","BuyRate":24,"SellRate":9,
-"GHI":2.0,"Voltage":230,"Frequency":50,"WindSpeed":95,
-"WindZone":"Extreme"
-},
-
-"Luxembourg":{
-"Latitude":49.8,"Currency":"EUR","BuyRate":0.30,"SellRate":0.12,
-"GHI":3.0,"Voltage":230,"Frequency":50,"WindSpeed":35,
-"WindZone":"Moderate"
-},
-
-"Estonia":{
-"Latitude":58.6,"Currency":"EUR","BuyRate":0.25,"SellRate":0.10,
-"GHI":2.7,"Voltage":230,"Frequency":50,"WindSpeed":60,
-"WindZone":"High"
-},
-
-"Latvia":{
-"Latitude":56.9,"Currency":"EUR","BuyRate":0.24,"SellRate":0.10,
-"GHI":2.8,"Voltage":230,"Frequency":50,"WindSpeed":55,
-"WindZone":"High"
-},
-
-"Lithuania":{
-"Latitude":55.2,"Currency":"EUR","BuyRate":0.24,"SellRate":0.10,
-"GHI":2.9,"Voltage":230,"Frequency":50,"WindSpeed":55,
-"WindZone":"High"
-},
-
-"Belarus":{
-"Latitude":53.7,"Currency":"BYN","BuyRate":0.22,"SellRate":0.09,
-"GHI":3.0,"Voltage":230,"Frequency":50,"WindSpeed":45,
-"WindZone":"Moderate"
-},
-
-"Moldova":{
-"Latitude":47.4,"Currency":"MDL","BuyRate":3.0,"SellRate":1.2,
-"GHI":3.8,"Voltage":230,"Frequency":50,"WindSpeed":40,
-"WindZone":"Moderate"
-},
-
-"Uruguay":{
-"Latitude":-32.5,"Currency":"UYU","BuyRate":8.5,"SellRate":3.5,
-"GHI":4.8,"Voltage":230,"Frequency":50,"WindSpeed":55,
-"WindZone":"High"
-},
-
-"Paraguay":{
-"Latitude":-23.4,"Currency":"PYG","BuyRate":650,"SellRate":250,
-"GHI":5.3,"Voltage":220,"Frequency":50,"WindSpeed":40,
-"WindZone":"Moderate"
-},
-
-"Bolivia":{
-"Latitude":-16.3,"Currency":"BOB","BuyRate":1.2,"SellRate":0.5,
-"GHI":5.6,"Voltage":230,"Frequency":50,"WindSpeed":35,
-"WindZone":"Moderate"
-},
-
-"Ecuador":{
-"Latitude":-1.8,"Currency":"USD","BuyRate":0.18,"SellRate":0.08,
-"GHI":4.9,"Voltage":120,"Frequency":60,"WindSpeed":30,
-"WindZone":"Moderate"
-},
-
-"Guyana":{
-"Latitude":5.0,"Currency":"GYD","BuyRate":42,"SellRate":18,
-"GHI":5.2,"Voltage":240,"Frequency":60,"WindSpeed":35,
-"WindZone":"Moderate"
-},
-
-"Suriname":{
-"Latitude":4.1,"Currency":"SRD","BuyRate":6.0,"SellRate":2.4,
-"GHI":5.1,"Voltage":127,"Frequency":60,"WindSpeed":30,
-"WindZone":"Moderate"
-},
-
-"Namibia":{
-"Latitude":-22.5,"Currency":"NAD","BuyRate":3.2,"SellRate":1.4,
-"GHI":6.2,"Voltage":220,"Frequency":50,"WindSpeed":45,
-"WindZone":"High"
-},
-
-"Botswana":{
-"Latitude":-22.3,"Currency":"BWP","BuyRate":2.1,"SellRate":0.9,
-"GHI":6.1,"Voltage":230,"Frequency":50,"WindSpeed":40,
-"WindZone":"Moderate"
-},
-
-"Zimbabwe":{
-"Latitude":-19.0,"Currency":"USD","BuyRate":0.16,"SellRate":0.06,
-"GHI":5.8,"Voltage":220,"Frequency":50,"WindSpeed":35,
-"WindZone":"Moderate"
-},
-
-"Zambia":{
-"Latitude":-13.1,"Currency":"ZMW","BuyRate":3.5,"SellRate":1.5,
-"GHI":5.7,"Voltage":230,"Frequency":50,"WindSpeed":35,
-"WindZone":"Moderate"
-},
-
-"Uganda":{
-"Latitude":1.3,"Currency":"UGX","BuyRate":850,"SellRate":350,
-"GHI":5.4,"Voltage":240,"Frequency":50,"WindSpeed":25,
-"WindZone":"Low"
-},
-
-"Tanzania":{
-"Latitude":-6.3,"Currency":"TZS","BuyRate":320,"SellRate":120,
-"GHI":5.6,"Voltage":230,"Frequency":50,"WindSpeed":30,
-"WindZone":"Moderate"
-},
-
-"Ghana":{
-"Latitude":7.9,"Currency":"GHS","BuyRate":2.1,"SellRate":0.9,
-"GHI":5.5,"Voltage":230,"Frequency":50,"WindSpeed":30,
-"WindZone":"Moderate"
-},
-
-"Cameroon":{
-"Latitude":5.7,"Currency":"XAF","BuyRate":95,"SellRate":40,
-"GHI":5.2,"Voltage":220,"Frequency":50,"WindSpeed":25,
-"WindZone":"Low"
-},
-
-"Senegal":{
-"Latitude":14.5,"Currency":"XOF","BuyRate":120,"SellRate":50,
-"GHI":5.8,"Voltage":230,"Frequency":50,"WindSpeed":40,
-"WindZone":"Moderate"
-}
-
-})
-# ============================================================
-# PART 3 OF 6
-# COMPONENT DATABASES + SIDEBAR
-# ============================================================
-
-# ------------------------------------------------------------
-# SOLAR PANELS DATABASE
-# ------------------------------------------------------------
 
 panel_db = {
-
-    "Mono PERC 450W":[
-        21.0,
-        140,
-        49.5,
-        -0.35,
-        45,
-        11.2,
-        "High efficiency"
-    ],
-
-    "Mono PERC 550W":[
-        22.5,
-        180,
-        50.8,
-        -0.34,
-        55,
-        13.2,
-        "Utility scale"
-    ],
-
-    "TOPCon 600W":[
-        23.2,
-        240,
-        52.4,
-        -0.30,
-        60,
-        14.0,
-        "Latest generation"
-    ],
-
-    "HJT 700W":[
-        24.0,
-        330,
-        53.5,
-        -0.26,
-        70,
-        15.1,
-        "Premium performance"
-    ]
-
+    "Jinko 545W Mono PERC": [21.5, 0.55, 0.28, -0.35, 49.8, 13.8, "Tier-1"],
+    "Trina 550W Mono PERC": [21.8, 0.58, 0.29, -0.36, 50.1, 13.9, "Tier-1"],
+    "LONGi 540W Hi-MO4": [21.2, 0.52, 0.27, -0.35, 49.5, 13.7, "Tier-1"],
+    #... baqi panels...
 }
-
-# ------------------------------------------------------------
-# BATTERY DATABASE
-# ------------------------------------------------------------
 
 battery_db = {
-
-    "No Battery":[
-        0,0,0,0,0,""
-    ],
-
-    "Lead Acid":[
-        85,
-        1200,
-        120,
-        4,
-        48,
-        "Budget option"
-    ],
-
-    "Lithium Iron Phosphate":[
-        96,
-        6500,
-        350,
-        1,
-        48,
-        "Recommended"
-    ],
-
-    "Lithium NMC":[
-        94,
-        5000,
-        420,
-        1.2,
-        48,
-        "High energy density"
-    ]
-
+    "LiFePO4 LFP": [94, 6000, 180, 2.0, 48, "Cobalt Free"],
+    "NMC Lithium": [92, 4000, 220, 2.5, 48, "High Energy"],
+    "Lead Acid AGM": [85, 1200, 120, 5.0, 24, "Cheap"],
+    "No Battery": [0, 0, 0, 0, 0, "Grid Only"]
 }
-
-# ------------------------------------------------------------
-# INVERTER DATABASE
-# ------------------------------------------------------------
-
+# --- 120+ COUNTRIES DATABASE [Lat, Currency, Export, Import, ESG, Labor, Sourcing, GHI, Elec%, Voltage, Frequency, Wind_kmh, Wind_Zone] ---
+db = {
+    "Afghanistan": [33.9, "AFN", 5, 12, "B", "High", "Import", 5.2, 98, 220, 50, 45, "High"], "Albania": [41.1, "ALL", 10, 18, "B+", "Medium", "EU Import", 4.1, 100, 230, 50, 25, "Low"],
+    "Algeria": [28.0, "DZD", 4, 12, "B", "Medium", "Local", 6.0, 99, 230, 50, 55, "Extreme"], "Andorra": [42.5, "EUR", 0.12, 0.28, "A+", "Very Low", "EU Certified", 4.3, 100, 230, 50, 30, "Moderate"],
+    "Angola": [-11.2, "AOA", 15, 30, "C", "High", "Import", 5.5, 42, 220, 50, 35, "Moderate"], "Argentina": [-38.4, "ARS", 25, 65, "B+", "Medium", "Local", 5.1, 100, 220, 50, 70, "Extreme"],
+    "Armenia": [40.2, "AMD", 12, 25, "B+", "Medium", "Import", 4.2, 100, 230, 50, 40, "High"], "Australia": [-25.2, "AUD", 0.10, 0.35, "A+", "Very Low", "AU Certified", 5.8, 100, 230, 50, 85, "Extreme"],
+    "Austria": [47.5, "EUR", 0.15, 0.45, "A+", "Very Low", "EU Certified", 3.4, 100, 230, 50, 35, "Moderate"], "Azerbaijan": [40.1, "AZN", 0.05, 0.12, "B", "Medium", "Import", 4.8, 100, 220, 50, 50, "High"],
+    "Bahrain": [26.0, "BHD", 0.02, 0.06, "A", "Low", "GCC", 5.9, 100, 230, 50, 60, "Extreme"], "Bangladesh": [23.6, "BDT", 7.5, 14.0, "B", "Medium", "Local Assembly", 4.6, 99, 220, 50, 90, "Extreme"],
+    "Belgium": [50.5, "EUR", 0.12, 0.52, "A+", "Very Low", "EU Certified", 2.9, 100, 230, 50, 40, "High"], "Bhutan": [27.5, "BTN", 3, 8, "A", "Low", "Hydro+Solar", 4.5, 99, 230, 50, 30, "Moderate"],
+    "Bolivia": [-16.2, "BOB", 0.4, 0.9, "B", "Medium", "Import", 5.8, 94, 220, 50, 25, "Low"], "Bosnia": [44.2, "BAM", 0.08, 0.16, "B+", "Medium", "EU Import", 3.6, 100, 230, 50, 45, "High"],
+    "Botswana": [-22.3, "BWP", 1.2, 2.4, "B+", "Medium", "Local", 6.1, 72, 230, 50, 50, "High"], "Brazil": [-14.2, "BRL", 0.55, 1.15, "A-", "Low", "Local Mfg", 5.5, 99, 220, 60, 60, "Extreme"],
+    "Bulgaria": [42.7, "BGN", 0.09, 0.18, "A-", "Low", "EU Certified", 3.8, 100, 230, 50, 40, "High"], "Burkina Faso": [12.4, "XOF", 85, 170, "C", "High", "Import", 5.8, 19, 220, 50, 55, "Extreme"],
+    "Burundi": [-3.4, "BIF", 180, 350, "C", "High", "Import", 5.2, 11, 220, 50, 20, "Low"], "Cambodia": [12.6, "KHR", 600, 1200, "B", "Medium", "Import", 5.0, 89, 230, 50, 70, "Extreme"],
+    "Cameroon": [6.3, "XAF", 75, 150, "C", "High", "Import", 5.0, 64, 220, 50, 35, "Moderate"], "Canada": [56.1, "CAD", 0.08, 0.24, "A+", "Very Low", "US/CA Certified", 3.7, 100, 120, 60, 80, "Extreme"],
+    "Chile": [-35.6, "CLP", 65, 155, "A", "Low", "Local", 6.2, 100, 220, 50, 75, "Extreme"], "China": [35.8, "CNY", 0.42, 0.72, "C+", "High", "Global Supply", 4.3, 100, 220, 50, 50, "High"],
+    "Colombia": [4.5, "COP", 380, 750, "B+", "Medium", "Import", 4.5, 99, 110, 60, 30, "Moderate"], "Croatia": [45.1, "EUR", 0.10, 0.20, "A", "Low", "EU Certified", 3.7, 100, 230, 50, 50, "High"],
+    "Cuba": [21.5, "CUP", 2.5, 5.0, "B", "Medium", "Import", 5.4, 100, 120, 60, 100, "Extreme"], "Cyprus": [35.1, "EUR", 0.15, 0.30, "A", "Low", "EU Certified", 5.6, 100, 230, 50, 55, "Extreme"],
+    "Czech": [49.8, "CZK", 2.2, 4.8, "A", "Low", "EU Certified", 3.1, 100, 230, 50, 35, "Moderate"], "Denmark": [56.2, "DKK", 0.65, 2.80, "A+", "Very Low", "EU Certified", 2.7, 100, 230, 50, 90, "Extreme"],
+    "Djibouti": [11.6, "DJF", 30, 60, "C", "High", "Import", 6.2, 61, 220, 50, 65, "Extreme"], "Dominican": [18.7, "DOP", 8.5, 17, "B", "Medium", "Import", 5.5, 99, 120, 60, 85, "Extreme"],
+    "Ecuador": [-1.8, "USD", 0.10, 0.20, "B+", "Medium", "Import", 4.8, 97, 120, 60, 25, "Low"], "Egypt": [26.8, "EGP", 1.2, 2.6, "B", "Medium", "Local Assembly", 6.1, 100, 220, 50, 50, "High"],
+    "El Salvador": [13.8, "USD", 0.14, 0.28, "B+", "Medium", "Import", 5.4, 99, 120, 60, 45, "High"], "Estonia": [58.6, "EUR", 0.12, 0.28, "A+", "Very Low", "EU Certified", 2.8, 100, 230, 50, 70, "Extreme"],
+    "Ethiopia": [9.1, "ETB", 0.5, 1.2, "B", "Medium", "China Import", 5.9, 51, 220, 50, 40, "High"], "Fiji": [-18.1, "FJD", 0.25, 0.50, "A-", "Low", "Import", 5.3, 99, 240, 50, 95, "Extreme"],
+    "Finland": [61.9, "EUR", 0.08, 0.38, "A+", "Very Low", "EU Certified", 2.5, 100, 230, 50, 60, "Extreme"], "France": [46.2, "EUR", 0.15, 0.34, "A+", "Very Low", "EU Certified", 3.5, 100, 230, 50, 45, "High"],
+    "Gabon": [-0.8, "XAF", 95, 190, "B", "Medium", "Import", 4.9, 87, 220, 50, 30, "Moderate"], "Georgia": [42.3, "GEL", 0.15, 0.30, "B+", "Medium", "Import", 4.2, 100, 220, 50, 50, "High"],
+    "Germany": [51.1, "EUR", 0.12, 0.48, "A+", "Very Low", "EU Certified", 3.0, 100, 230, 50, 55, "Extreme"], "Ghana": [7.9, "GHS", 0.50, 1.0, "B", "Medium", "Import", 5.4, 86, 230, 50, 40, "High"],
+    "Greece": [39.0, "EUR", 0.18, 0.38, "A", "Low", "EU Import", 4.5, 100, 230, 50, 65, "Extreme"], "Guatemala": [15.8, "GTQ", 1.2, 2.4, "B", "Medium", "Import", 5.5, 93, 120, 60, 35, "Moderate"],
+    "Honduras": [14.1, "HNL", 4.5, 9.0, "B", "Medium", "Import", 5.6, 88, 120, 60, 70, "Extreme"], "Hungary": [47.2, "HUF", 35, 75, "A-", "Low", "EU Certified", 3.4, 100, 230, 50, 40, "High"],
+    "Iceland": [64.9, "ISK", 8, 18, "A+", "Very Low", "Geothermal", 2.2, 100, 230, 50, 120, "Extreme"], "India": [20.5, "INR", 6.2, 12.5, "A-", "Low", "Local Mfg", 5.4, 99, 230, 50, 60, "Extreme"],
+    "Indonesia": [-0.7, "IDR", 1500, 3400, "B", "Medium", "Local", 4.8, 99, 220, 50, 50, "High"], "Iran": [32.4, "IRR", 800, 2000, "B", "Medium", "Local", 5.6, 100, 220, 50, 70, "Extreme"],
+    "Iraq": [33.2, "IQD", 70, 160, "C", "High", "Import", 5.8, 99, 220, 50, 55, "Extreme"], "Ireland": [53.1, "EUR", 0.22, 0.55, "A+", "Very Low", "EU Certified", 2.7, 100, 230, 50, 95, "Extreme"],
+    "Israel": [31.0, "ILS", 0.40, 0.60, "A", "Low", "Local", 5.7, 100, 230, 50, 50, "High"], "Italy": [41.8, "EUR", 0.20, 0.50, "A", "Low", "EU Certified", 4.2, 100, 230, 50, 50, "High"],
+    "Jamaica": [18.1, "JMD", 25, 50, "B+", "Medium", "Import", 5.6, 99, 110, 50, 100, "Extreme"], "Japan": [36.2, "JPY", 21, 42, "A+", "Very Low", "JP Certified", 3.8, 100, 100, 50, 110, "Extreme"],
+    "Jordan": [30.5, "JOD", 0.08, 0.18, "B+", "Medium", "Local", 5.8, 100, 230, 50, 60, "Extreme"], "Kazakhstan": [48.0, "KZT", 8, 18, "B", "Medium", "Local", 4.6, 100, 220, 50, 65, "Extreme"],
+    "Kenya": [-1.2, "KES", 12, 28, "B", "Medium", "Import", 5.7, 76, 240, 50, 35, "Moderate"], "Kuwait": [29.3, "KWD", 0.02, 0.08, "A", "Low", "GCC", 5.9, 100, 240, 50, 70, "Extreme"],
+    "Kyrgyzstan": [41.2, "KGS", 2.5, 5.0, "B", "Medium", "Import", 4.5, 100, 220, 50, 45, "High"], "Latvia": [56.9, "EUR", 0.11, 0.24, "A", "Low", "EU Certified", 2.8, 100, 230, 50, 60, "Extreme"],
+    "Lebanon": [33.9, "LBP", 120, 250, "C", "High", "Import", 5.5, 98, 220, 50, 55, "Extreme"], "Libya": [26.3, "LYD", 0.15, 0.30, "C", "High", "Import", 6.0, 99, 230, 50, 65, "Extreme"],
+    "Lithuania": [55.2, "EUR", 0.10, 0.22, "A", "Low", "EU Certified", 2.9, 100, 230, 50, 60, "Extreme"], "Luxembourg": [49.8, "EUR", 0.18, 0.36, "A+", "Very Low", "EU Certified", 3.0, 100, 230, 50, 40, "High"],
+    "Madagascar": [-18.8, "MGA", 450, 900, "C", "High", "Import", 5.6, 36, 220, 50, 75, "Extreme"], "Malawi": [-13.9, "MWK", 85, 170, "C", "High", "Import", 5.7, 12, 230, 50, 30, "Moderate"],
+    "Malaysia": [4.2, "MYR", 0.38, 0.68, "A-", "Low", "Local Mfg", 4.7, 100, 240, 50, 45, "High"], "Mali": [17.6, "XOF", 90, 180, "C", "High", "Import", 5.9, 38, 220, 50, 50, "High"],
+    "Malta": [35.9, "EUR", 0.16, 0.32, "A", "Low", "EU Certified", 5.4, 100, 230, 50, 70, "Extreme"], "Mexico": [23.6, "MXN", 2.2, 4.8, "B+", "Medium", "US Import", 5.6, 99, 127, 60, 80, "Extreme"],
+    "Mongolia": [46.9, "MNT", 180, 360, "B", "Medium", "Import", 4.3, 89, 230, 50, 80, "Extreme"], "Morocco": [31.7, "MAD", 1.1, 2.2, "B+", "Medium", "Local", 5.9, 99, 220, 50, 55, "Extreme"],
+    "Mozambique": [-18.7, "MZN", 4.5, 9.0, "C", "High", "Import", 5.8, 34, 220, 50, 85, "Extreme"], "Myanmar": [19.7, "MMK", 80, 160, "C", "High", "Import", 5.0, 50, 230, 50, 75, "Extreme"],
+    "Namibia": [-22.6, "NAD", 1.8, 3.6, "B+", "Medium", "Import", 6.2, 56, 220, 50, 70, "Extreme"], "Nepal": [28.3, "NPR", 8.2, 18.5, "B", "Medium", "India Import", 4.7, 95, 230, 50, 40, "High"],
+    "Netherlands": [52.1, "EUR", 0.16, 0.55, "A+", "Very Low", "EU Certified", 2.8, 100, 230, 50, 85, "Extreme"], "New Zealand": [-40.9, "NZD", 0.11, 0.40, "A+", "Very Low", "AU/NZ", 4.4, 100, 230, 50, 90, "Extreme"],
+    "Nicaragua": [12.9, "NIO", 4.2, 8.4, "B", "Medium", "Import", 5.5, 97, 120, 60, 80, "Extreme"], "Niger": [17.6, "XOF", 95, 190, "C", "High", "Import", 6.0, 19, 220, 50, 55, "Extreme"],
+    "Nigeria": [9.0, "NGN", 70, 160, "C", "High", "Import", 5.5, 62, 230, 50, 45, "High"], "North Korea": [40.3, "KPW", 5, 10, "C", "High", "Import", 4.2, 26, 220, 60, 60, "Extreme"],
+    "Norway": [60.4, "NOK", 0.9, 2.8, "A+", "Very Low", "EU Certified", 2.3, 100, 230, 50, 80, "Extreme"], "Oman": [21.5, "OMR", 0.03, 0.12, "A", "Low", "GCC", 6.0, 100, 240, 50, 65, "Extreme"],
+    "Pakistan": [30.3, "PKR", 42.0, 82.0, "B+", "Medium", "China Import", 5.3, 97, 220, 50, 55, "Extreme"], "Palestine": [31.9, "ILS", 0.45, 0.90, "C", "High", "Import", 5.7, 100, 230, 50, 50, "High"],
+    "Panama": [8.4, "USD", 0.15, 0.30, "A-", "Low", "Import", 4.9, 94, 120, 60, 45, "High"], "Paraguay": [-23.4, "PYG", 350, 700, "B+", "Medium", "Import", 5.1, 99, 220, 50, 40, "High"],
+    "Peru": [-9.1, "PEN", 0.32, 0.68, "B+", "Medium", "Import", 5.4, 99, 220, 60, 35, "Moderate"], "Philippines": [12.8, "PHP", 6.2, 14.0, "B", "Medium", "China Import", 5.1, 94, 220, 60, 95, "Extreme"],
+    "Poland": [51.9, "PLN", 0.45, 0.95, "A", "Low", "EU Certified", 3.1, 100, 230, 50, 50, "High"], "Portugal": [39.3, "EUR", 0.14, 0.32, "A", "Low", "EU Certified", 4.3, 100, 230, 50, 55, "Extreme"],
+    "Qatar": [25.3, "QAR", 0.15, 0.38, "A", "Low", "GCC", 5.9, 100, 240, 50, 60, "Extreme"], "Romania": [45.9, "RON", 0.45, 0.95, "A-", "Low", "EU Certified", 3.6, 100, 230, 50, 45, "High"],
+    "Russia": [61.5, "RUB", 3.5, 6.2, "B", "Medium", "Local", 3.2, 100, 220, 50, 70, "Extreme"], "Rwanda": [-1.9, "RWF", 150, 300, "B+", "Medium", "Import", 5.3, 35, 230, 50, 25, "Low"],
+    "Saudi Arabia": [23.8, "SAR", 0.15, 0.32, "A", "Low", "GCC Local", 6.1, 100, 220, 60, 65, "Extreme"], "Senegal": [14.7, "XOF", 85, 170, "B", "Medium", "Import", 5.8, 70, 230, 50, 50, "High"],
+    "Serbia": [44.0, "RSD", 6, 12, "B+", "Medium", "Import", 3.7, 100, 230, 50, 45, "High"], "Singapore": [1.3, "SGD", 0.28, 0.45, "A+", "Very Low", "Import", 4.6, 100, 230, 50, 40, "High"],
+    "Slovakia": [48.7, "EUR", 0.12, 0.26, "A", "Low", "EU Certified", 3.2, 100, 230, 50, 45, "High"], "Slovenia": [46.1, "EUR", 0.13, 0.27, "A+", "Very Low", "EU Certified", 3.5, 100, 230, 50, 50, "High"],
+    "Somalia": [5.1, "SOS", 200, 400, "C", "High", "Import", 6.0, 35, 220, 50, 70, "Extreme"], "South Africa": [-30.5, "ZAR", 1.9, 3.8, "B+", "Medium", "Local", 5.7, 85, 230, 50, 60, "Extreme"],
+    "South Korea": [37.5, "KRW", 95, 180, "A+", "Very Low", "KR Certified", 3.8, 100, 220, 60, 75, "Extreme"], "South Sudan": [6.5, "SSP", 25, 50, "C", "High", "Import", 5.9, 7, 230, 50, 40, "High"],
+    "Spain": [40.4, "EUR", 0.22, 0.45, "A", "Low", "EU Certified", 4.6, 100, 230, 50, 60, "Extreme"], "Sri Lanka": [7.8, "LKR", 25, 58, "B", "Medium", "India Import", 5.2, 99, 230, 50, 80, "Extreme"],
+    "Sudan": [15.5, "SDG", 2.5, 5.0, "C", "High", "Import", 6.1, 52, 230, 50, 60, "Extreme"], "Sweden": [60.1, "SEK", 0.85, 2.40, "A+", "Very Low", "EU Certified", 2.6, 100, 230, 50, 75, "Extreme"],
+    "Switzerland": [46.8, "CHF", 0.20, 0.45, "A+", "Very Low", "EU Certified", 3.4, 100, 230, 50, 40, "High"], "Syria": [34.8, "SYP", 35, 70, "C", "High", "Import", 5.8, 89, 220, 50, 55, "Extreme"],
+    "Tajikistan": [38.5, "TJS", 0.25, 0.50, "B", "Medium", "Import", 4.6, 100, 220, 50, 50, "High"], "Tanzania": [-6.1, "TZS", 180, 420, "B", "Medium", "Import", 5.6, 38, 230, 50, 40, "High"],
+    "Thailand": [15.8, "THB", 2.8, 6.0, "A-", "Low", "Local Mfg", 5.0, 100, 220, 50, 60, "Extreme"], "Tunisia": [34.0, "TND", 0.18, 0.38, "B+", "Medium", "Local", 5.8, 100, 230, 50, 55, "Extreme"],
+    "Turkey": [38.9, "TRY", 3.5, 6.5, "B+", "Medium", "Local", 4.9, 100, 230, 50, 50, "High"], "UAE": [23.4, "AED", 0.22, 0.48, "A", "Low", "GCC Local", 5.9, 100, 220, 50, 65, "Extreme"],
+    "Uganda": [1.4, "UGX", 580, 1160, "B", "Medium", "Import", 5.5, 42, 240, 50, 30, "Moderate"], "Ukraine": [48.3, "UAH", 1.8, 4.2, "B", "Medium", "EU Import", 3.4, 100, 220, 50, 50, "High"],
+    "UK": [55.3, "GBP", 0.22, 0.58, "A+", "Very Low", "UK/EU Certified", 2.8, 100, 230, 50, 80, "Extreme"], "Uruguay": [-32.5, "UYU", 3.8, 7.6, "A", "Low", "Import", 4.8, 100, 230, 50, 70, "Extreme"],
+    "USA": [37.0, "USD", 0.14, 0.30, "A+", "Very Low", "US Certified", 4.8, 100, 120, 60, 90, "Extreme"], "Uzbekistan": [41.3, "UZS", 250, 500, "B", "Medium", "Local", 5.2, 100, 220, 50, 50, "High"],
+    "Venezuela": [6.4, "VES", 0.02, 0.04, "C", "High", "Import", 5.2, 99, 120, 60, 35, "Moderate"], "Vietnam": [14.0, "VND", 2200, 3800, "B+", "Medium", "Local Mfg", 4.8, 100, 220, 50, 85, "Extreme"],
+    "Yemen": [15.4, "YER", 40, 80, "C", "High", "Import", 5.9, 47, 220, 50, 60, "Extreme"], "Zambia": [-13.1, "ZMW", 1.2, 2.4, "B", "Medium", "Import", 5.7, 45, 230, 50, 35, "Moderate"],
+    "Zimbabwe": [-19.0, "USD", 0.10, 0.25, "C", "High", "Import", 5.8, 47, 230, 50, 40, "High"]
+}
 inverter_db = {
-
-    "String Inverter":[
-        97,
-        1.00,
-        120,
-        "Residential"
-    ],
-
-    "Hybrid Inverter":[
-        98,
-        1.05,
-        180,
-        "Battery compatible"
-    ],
-
-    "Micro Inverter":[
-        96,
-        1.08,
-        250,
-        "Best shading performance"
-    ]
-
+    "String Inverter": [97.5, 1.0, 800, "Central MPPT"],
+    "Hybrid Inverter": [97.0, 1.02, 1500, "Battery + Grid"],
+    "Micro Inverter": [96.8, 1.05, 1200, "Panel Level MPPT"]
 }
-
-# ------------------------------------------------------------
-# STRUCTURE DATABASE
-# ------------------------------------------------------------
 
 structure_db = {
-
-    "Low":{
-        "tilt_max":35,
-        "type":"Light Duty"
-    },
-
-    "Moderate":{
-        "tilt_max":40,
-        "type":"Medium Duty"
-    },
-
-    "High":{
-        "tilt_max":45,
-        "type":"Heavy Duty"
-    },
-
-    "Extreme":{
-        "tilt_max":50,
-        "type":"Cyclone Rated"
-    }
-
+    "Low": {"type": "Aluminum Fixed Tilt", "tilt_max": 30, "material": "Anodized AL-6005-T5", "foundation": "Ground Screw", "clamp": "Standard"},
+    "Moderate": {"type": "Galvanized Steel", "tilt_max": 25, "material": "Galvanized Steel", "foundation": "Concrete Ballast", "clamp": "Reinforced"},
+    "High": {"type": "Galvanized Steel + Bracing", "tilt_max": 20, "material": "Galvanized Steel + Cross Bracing", "foundation": "Concrete Footing", "clamp": "Heavy Duty"},
+    "Extreme": {"type": "Steel + Wind Deflector", "tilt_max": 15, "material": "S355 Steel + Wind Deflector", "foundation": "Deep Concrete Pile", "clamp": "Hurricane Rated"}
 }
 
-# ============================================================
+# --- CSS ---
+st.markdown("""
+<style>
+.main-header {color: white; font-size: 42px; font-weight: 900; text-align: center;
+background: rgba(255,255,255,0.15); backdrop-filter: blur(20px); padding: 25px; border-radius: 20px; margin-bottom: 30px;}
+.stMetric {background: rgba(255,255,255,0.85); border-radius: 15px; padding: 20px; box-shadow: 0 8px 32px rgba(31,38,135,0.15);}
+.feature-box {background: rgba(255,255,255,0.9); padding: 28px; border-radius: 20px; margin-bottom: 20px;}
+.info-label {background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 10px 20px; border-radius: 12px; font-weight: 700;}
+</style>
+""", unsafe_allow_html=True)  
+# --- SIDEBAR INPUTS ---
 with st.sidebar:
-    st.title("⚙ Solar Inputs")
+    st.title("⚡ Solar Estimator Pro")
+    country = st.selectbox("🌍 Country - 120+ Options", sorted(db.keys()))
+    country_data = list(db[country]) + [None] * 15
+    c_lat, c_curr, c_sale, c_buy, esg_rating, labor_risk, sourcing, avg_ghi, elec_access, grid_v, grid_f, wind_kmh_db, wind_zone = country_data[:13]
 
-    country = st.selectbox("Country", sorted(countries_db.keys()))
-    country_data = countries_db[country]
     st.divider()
+    st.markdown("### 🔐 Weather Settings")
+    use_live_weather = st.checkbox("🌐 Live Weather + 7 Day Report ON", value=False)
+    password = st.text_input("Password for Live Data", type="password", value="")
+    LIVE_PASSWORD = "solar2026"
 
-    weather_enabled = st.toggle("Use Live Weather", value=False)
-    if weather_enabled:
-        st.info("Location permission required")
     st.divider()
-
     panel_type = st.selectbox("Solar Panel", list(panel_db.keys()))
-    panel_qty = st.number_input("Panel Quantity", min_value=1, max_value=5000, value=20)
-    st.divider()
+    p_eff, p_cost, voc, p_temp, voc_std, isc, p_note = panel_db[panel_type]
+    p_qty = st.number_input("Number of Panels", 1, 1000, 20)
 
     inverter_type = st.selectbox("Inverter", list(inverter_db.keys()))
-    st.divider()
+    inv_eff, inv_bonus, inv_cost, inv_note = inverter_db[inverter_type]
+    tilt = st.slider("Tilt Angle °", 0, 60, 25)
+    azimuth = st.slider("Azimuth °", -180, 180, 0)
 
+    building_height = st.number_input("Building Height m", 3.0, 50.0, 6.0)
+    wire_length = st.number_input("DC Cable Length m", 10, 200, 50)
+    cable_size = st.selectbox("DC Cable mm²", [4, 6, 10, 16, 25])
+
+    st.divider()
     battery_type = st.selectbox("Battery", list(battery_db.keys()))
-    if battery_type != "No Battery":
-        battery_capacity = st.number_input("Battery Capacity (kWh)", value=20.0)
-        battery_dod = st.slider("Battery DoD %", 50, 95, 85)
+    b_eff, b_cycles, b_cost, b_degrade, b_voltage, b_note = battery_db[battery_type]
+    has_batt = battery_type!= "No Battery"
+    b_cap = st.number_input("Battery kWh", 0.0, 500.0, 20.0) if has_batt else 0
+    dod = st.slider("DoD %", 50, 95, 85) if has_batt else 0
+
+    h_load = st.number_input("Daily Load kWh", 1.0, 500.0, 55.0)
+    sun_h = st.slider("Peak Sun Hours", 3.0, 8.5, float(avg_ghi))
+    sys_loss = st.slider("System Losses %", 8, 30, 14)
+    soiling = st.slider("Soiling %", 0, 20, 5)
+    temp_ambient = st.slider("Temp °C", 15, 50, 28)
+
+    st.divider()
+    buy_rate = st.number_input(f"Buy Rate {c_curr}", value=float(c_buy))
+    sell_rate = st.number_input(f"Sell Rate {c_curr}", value=float(c_sale))
+    tax_val = st.slider("Tax %", 0, 30, 17)
+    install_cost = st.number_input(f"Install/kWp {c_curr}", value=42000.0 if country=="Pakistan" else 750.0)
+    discount_rate = st.slider("Discount %", 3, 15, 8)
+
+# --- LOCATION LOGIC - WEATHER ON/OFF ---
+if use_live_weather and password == LIVE_PASSWORD and GEO_ENABLED:
+    lat, lon, location_name = safe_geocode(country, c_lat)
+    week_weather = get_7day_weather(lat, lon)
+    if week_weather:
+        st.sidebar.success(f"🌤️ Live: {location_name}")
+        avg_cloud = np.mean([w['cloud'] for w in week_weather])
+        avg_wind = np.mean([w['wind_max'] for w in week_weather])
+        sun_h = max(3.0, avg_ghi * (1 - avg_cloud/100 * 0.8))
+        wind = avg_wind
+        cloud = avg_cloud
+        show_map = True
     else:
-        battery_capacity = 0
-        battery_dod = 0
-    st.divider()
-
-    daily_load = st.number_input("Daily Load (kWh)", value=50.0)
-    st.divider()
-
-    tilt = st.slider("Tilt Angle", 0, 60, 25)
-    azimuth = st.slider("Azimuth", -180, 180, 0)
-    st.divider()
-
-    tax_rate = st.slider("Tax %", 0, 30, 17)
-
-# ============================================================
-# COUNTRY VALUES
-# ============================================================
-lat = country_data["Latitude"]
-currency = country_data["Currency"]
-buy_rate = country_data["BuyRate"]
-sell_rate = country_data["SellRate"]
-ghi = country_data["GHI"]
-grid_voltage = country_data["Voltage"]
-grid_frequency = country_data["Frequency"]
-wind_speed = country_data["WindSpeed"]
-wind_zone = country_data["WindZone"]
-
-# ============================================================
-# LOCATION
-# ============================================================
-latitude, longitude, location_name = get_country_location(country, lat)
-
-# ============================================================
-# WEATHER
-# ============================================================
-cloud = 20
-temperature = 25
-weekly_forecast = []
-weekly_output = []  # Explicitly initialized to prevent structural reference errors
-
-if weather_enabled:
-    weather = get_live_weather(latitude, longitude)
-    if weather:
-        temperature = weather["temperature"]
-        cloud = weather["cloud"]
-        wind_speed = weather["wind"]
-        weekly_forecast = get_week_forecast(latitude, longitude)
-
-# ============================================================
-# SOLAR CALCULATION ENGINE
-# ============================================================
-
-# PANEL DATA -------------------------------------------------
-panel_efficiency = panel_db[panel_type][0]
-panel_cost = panel_db[panel_type][1]
-panel_voc = panel_db[panel_type][2]
-panel_temp_coeff = panel_db[panel_type][3]
-panel_power = panel_db[panel_type][4]
-panel_isc = panel_db[panel_type][5]
-
-# BATTERY DATA -----------------------------------------------
-battery_eff = battery_db[battery_type][0]
-battery_cycles = battery_db[battery_type][1]
-battery_cost_per_kwh = battery_db[battery_type][2]
-
-# INVERTER DATA ----------------------------------------------
-inv_eff = inverter_db[inverter_type][0]
-inv_factor = inverter_db[inverter_type][1]
-inv_cost_per_kw = inverter_db[inverter_type][2]
-
-# WEATHER CORRECTIONS ----------------------------------------
-cloud_factor = max(0.35, 1 - (cloud / 100) * 0.55)
-temp_factor = max(0.70, 1 - ((temperature - 25) * abs(panel_temp_coeff) / 100))
-weather_factor = cloud_factor * temp_factor
-
-# SOLAR ARRAY SIZE -------------------------------------------
-system_size_kw = (panel_qty * panel_power) / 1000
-
-# GENERATION METRICS -----------------------------------------
-daily_generation = system_size_kw * ghi * weather_factor * (inv_eff / 100)
-annual_generation = daily_generation * 365
-
-# WEEKLY OUTPUT FORECAST -------------------------------------
-if weather_enabled and weekly_forecast:
-    for day in weekly_forecast:
-        c = day["Cloud"]
-        cloud_adj = max(0.35, 1 - (c / 100) * 0.55)
-        gen = system_size_kw * ghi * cloud_adj * (inv_eff / 100)
-        weekly_output.append({
-            "Date": day["Date"],
-            "Generation": round(gen, 2)
-        })
-
-# ENERGY BALANCE ---------------------------------------------
-net_energy = daily_generation - daily_load
-coverage_percent = (daily_generation / max(daily_load, 1)) * 100
-
-# BATTERY ENGINE ---------------------------------------------
-has_battery = (battery_type != "No Battery")
-usable_battery = 0
-backup_hours = 0
-
-if has_battery:
-    usable_battery = battery_capacity * (battery_dod / 100) * (battery_eff / 100)
-    backup_hours = usable_battery / max(daily_load / 24, 0.1)
-
-# INVERTER SIZING --------------------------------------------
-recommended_inverter = system_size_kw * inv_factor
-
-# STRING DESIGN ----------------------------------------------
-panels_per_string = max(1, int(1000 / panel_voc))
-strings = max(1, math.ceil(panel_qty / panels_per_string))
-voc_string = panel_voc * panels_per_string
-isc_string = panel_isc * strings
-mppt_voltage = voc_string * 0.82
-
-# WIND ANALYSIS ----------------------------------------------
-wind_pressure = 0.613 * (wind_speed / 3.6) ** 2
-panel_area = panel_qty * 2.3
-wind_force = wind_pressure * panel_area
-
-# STRUCTURE TYPE ---------------------------------------------
-if wind_zone in structure_db:
-    structure_type = structure_db[wind_zone]["type"]
+        st.sidebar.warning("⚠️ API fail. DB data use.")
+        lat, lon, location_name = c_lat, 70.0, country
+        wind, cloud = wind_kmh_db, 20
+        week_weather = None
+        show_map = False
 else:
-    structure_type = "Standard"
+    lat, lon, location_name = c_lat, 70.0, country # LIVE LOCATION HIDE
+    wind, cloud = wind_kmh_db, 20
+    week_weather = None
+    show_map = False
+    if use_live_weather:
+        st.sidebar.error("❌ Wrong password. Manual mode.")
 
-# CARBON SAVINGS ---------------------------------------------
-co2_factor = 0.45
-annual_co2_saved = (annual_generation * co2_factor) / 1000
-trees_equivalent = annual_co2_saved * 45
+# --- CALCULATIONS ---
+sys_size = (p_eff * p_qty) / 1000
+panels_per_string = int(1000 / voc_std)
+strings = math.ceil(p_qty / panels_per_string)
+voc_string = voc_std * panels_per_string
+isc_string = isc * strings
+mppt_voltage = voc_string * 0.8
 
-# NET METERING -----------------------------------------------
-surplus_daily = max(0, daily_generation - daily_load)
-surplus_annual = surplus_daily * 365
-annual_export_income = surplus_annual * sell_rate
+wind_force = calc_wind_load(wind, tilt, p_qty)
+struct = structure_db[wind_zone]
+wind_safe = wind_force < (sys_size * 50)
 
-# FINANCIAL ENGINE -------------------------------------------
-panel_cost_total = panel_qty * panel_cost
-battery_cost_total = battery_capacity * battery_cost_per_kwh
-inverter_cost_total = recommended_inverter * inv_cost_per_kw
+current_dc = (sys_size * 1000) / 400
+voltage_drop = (current_dc * wire_length * 0.0175) / cable_size
+vd_percent = (voltage_drop / mppt_voltage) * 100 if mppt_voltage > 0 else 0
 
-subtotal = panel_cost_total + battery_cost_total + inverter_cost_total
-tax_amount = subtotal * tax_rate / 100
-total_cost = subtotal + tax_amount
+angle_eff = np.cos(np.radians(tilt - abs(c_lat))) * np.cos(np.radians(azimuth))
+temp_loss = 1 + (p_temp/100) * (temp_ambient + 25 - 25)
+soiling_loss = 1 - soiling/100
+weather_factor = 1 - cloud*0.008 + wind*0.0003
 
-annual_savings = min(daily_generation, daily_load) * 365 * buy_rate
-annual_profit = annual_savings + annual_export_income
+daily_yield = sys_size * sun_h * ((100-sys_loss)/100) * angle_eff * (p_eff/21.5) * temp_loss * soiling_loss * (inv_eff/100) * inv_bonus * weather_factor
 
-if annual_profit > 0:
-    payback_years = total_cost / annual_profit
+hours = np.arange(24)
+gen_24 = [daily_yield/12 * np.sin(np.pi * (h-6)/12) if 6 <= h <= 18 else 0 for h in hours]
+gen_24 = [max(0, g) for g in gen_24]
+load_24 = [(h_load/24) * (2.8 if (h > 18 or h < 7) else 0.7) for h in hours]
+
+soc = []
+c_soc = b_cap * (dod/100) if has_batt else 0
+for g, l in zip(gen_24, load_24):
+    if has_batt:
+        diff = g - l
+        c_soc = max(0, min(b_cap, c_soc + diff * (b_eff/100)))
+    soc.append(c_soc)
+
+export_24 = [max(0, g - l - (soc[i]-soc[i-1] if i>0 else 0)) for i, (g, l) in enumerate(zip(gen_24, load_24))]
+import_24 = [max(0, l - g - (soc[i-1]-soc[i] if i>0 else 0)) for i, (g, l) in enumerate(zip(gen_24, load_24))]
+
+rod_height, protection_radius = calc_lightning_protection(building_height)
+
+battery_cost = b_cap * b_cost if has_batt else 0
+panel_cost = sys_size * 1000 * p_cost
+inverter_cost = sys_size * inv_cost
+structure_cost = sys_size * 150
+cable_cost = wire_length * cable_size * 2.5
+lightning_cost = rod_height * 80
+gross_cost = panel_cost + battery_cost + inverter_cost + structure_cost + cable_cost + lightning_cost + sys_size*install_cost
+net_cost = gross_cost * (1 - 30/100 if country=="Pakistan" else 1)
+
+years = np.arange(25)
+yearly_gen = [sum(gen_24)*365 * (1-b_degrade/100)**y for y in years]
+yearly_profit = [y * ((1-sum(export_24)/sum(gen_24))*buy_rate + (sum(export_24)/sum(gen_24))*sell_rate) * (1-tax_val/100) for y in yearly_gen]
+payback = net_cost / yearly_profit[0] if yearly_profit[0] > 0 else 99
+npv = sum([p/((1+discount_rate/100)**i) for i,p in enumerate(yearly_profit)]) - net_cost
+
+# 7 DIN KA OUTPUT
+if week_weather:
+    weekly_output = []
+    for w in week_weather:
+        day_sun = max(3.0, avg_ghi * (1 - w['cloud']/100 * 0.8))
+        day_factor = 1 - w['cloud']*0.008 + w['wind_max']*0.0003
+        day_gen = sys_size * day_sun * ((100-sys_loss)/100) * angle_eff * (p_eff/21.5) * temp_loss * soiling_loss * (inv_eff/100) * inv_bonus * day_factor
+        weekly_output.append({'Date': w['date'], 'Gen kWh': round(day_gen, 2), 'Cloud %': w['cloud'], 'Wind km/h': round(w['wind_max'], 1), 'Risk': "🔴" if w['wind_max']>80 else "🟠" if w['wind_max']>50 else "🟢"})
+    weekly_df = pd.DataFrame(weekly_output)
 else:
-    payback_years = 999
+    weekly_df = pd.DataFrame({'Date': ['Manual Mode'], 'Gen kWh': [round(daily_yield*7, 2)], 'Cloud %': [cloud], 'Wind km/h': [wind], 'Risk': ['N/A']})
+# --- HEADER ---
+st.markdown(f"<div class='main-header'>⚡ Solar Power Estimator Pro: {country}</div>", unsafe_allow_html=True)
 
-# AI SYSTEM SCORE --------------------------------------------
-score = 100
-if coverage_percent < 100: score -= 20
-if cloud > 70: score -= 10
-if payback_years > 8: score -= 15
-if wind_speed > 80: score -= 5
+# --- KPI 10 METRICS ---
+k1, k2, k3, k4, k5, k6, k7, k8, k9, k10 = st.columns(10)
+k1.metric("System kWp", f"{sys_size:.2f}")
+k2.metric("Daily Gen", f"{sum(gen_24):.1f} kWh")
+k3.metric("Weekly Gen", f"{daily_yield*7:.1f} kWh")
+k4.metric("VOC String", f"{voc_string:.0f} V")
+k5.metric("VD Loss", f"{vd_percent:.2f}%")
+k6.metric("Battery", battery_type.split()[0] if has_batt else "None")
+k7.metric("Self Use", f"{(1-sum(import_24)/h_load)*100:.1f}%")
+k8.metric("ESG", esg_rating)
+k9.metric("Wind Force", f"{wind_force:.1f} kN")
+k10.metric("Wind Risk", wind_zone, f"{wind:.0f} km/h", delta_color="inverse" if wind_zone in ["High","Extreme"] else "normal")
+st.divider()
 
-system_score = max(0, min(100, round(score)))
+# --- 7 TABS ---
+tabs = st.tabs(["📊 7 Day Report", "⚡ Energy", "🔧 Technical", "💰 Financial", "🌿 Eco", "⚙️ Protection", "📄 Export"])
 
-# RECOMMENDATIONS --------------------------------------------
-recommendations = []
-if coverage_percent < 100:
-    recommendations.append("Increase solar panel quantity.")
-if payback_years > 8:
-    recommendations.append("Reduce system cost or improve self-consumption.")
-if wind_speed > 80:
-    recommendations.append("Use cyclone-rated mounting structure.")
-if battery_type == "No Battery":
-    recommendations.append("Battery backup recommended.")
-if not recommendations:
-    recommendations.append("System configuration looks good.")
+with tabs[0]:
+    st.markdown("<span class='info-label'>7 DIN KA WEATHER + GENERATION REPORT</span>", unsafe_allow_html=True)
+    if week_weather and show_map:
+        st.success(f"✅ Live Weather Active for {location_name}")
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            m = folium.Map(location=[lat, lon], zoom_start=8)
+            folium.Marker([lat, lon], popup=country).add_to(m)
+            st_folium(m, height=350, width=400)
+        with col2:
+            st.dataframe(weekly_df, use_container_width=True, height=350)
+            st.metric("7 Day Total Gen", f"{weekly_df['Gen kWh'].sum():.1f} kWh")
+            st.metric("Avg Cloud", f"{weekly_df['Cloud %'].mean():.0f}%")
+            st.metric("Avg Wind", f"{weekly_df['Wind km/h'].mean():.1f} km/h")
+    else:
+        st.info("💡 Manual Mode: Weather OFF hai. Sidebar inputs se calculation ho rahi hai.")
+        st.dataframe(weekly_df, use_container_width=True)
 
-# ============================================================
-# ADVANCED FINANCIAL ENGINE
-# ============================================================
-project_life = 25
-panel_degradation = 0.55
-discount_rate = 8.0
-inflation_rate = 5.0
-electricity_growth = 4.0
+with tabs[1]:
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=hours, y=gen_24, name="Solar Gen", fill='tozeroy', line=dict(color='#667eea', width=4)))
+    fig.add_trace(go.Scatter(x=hours, y=load_24, name="Load", line=dict(color='#f5576c', width=3)))
+    if has_batt:
+        fig.add_trace(go.Scatter(x=hours, y=soc, name="Battery SOC", line=dict(color='#4ade80', width=3)))
+    fig.update_layout(height=500, plot_bgcolor='rgba(255,255,255,0.8)', paper_bgcolor='rgba(255,255,255,0)')
+    st.plotly_chart(fig, use_container_width=True)
 
-# YEARLY FORECAST --------------------------------------------
-yearly_forecast = []
-for year in range(1, project_life + 1):
-    degradation_factor = max(0.75, 1 - (panel_degradation / 100 * year))
-    yearly_energy = annual_generation * degradation_factor
-    future_buy_rate = buy_rate * (1 + electricity_growth / 100) ** year
-    yearly_saving = yearly_energy * future_buy_rate
-
-    yearly_forecast.append({
-        "Year": year,
-        "Energy": round(yearly_energy, 2),
-        "Tariff": round(future_buy_rate, 4),
-        "Saving": round(yearly_saving, 2)
-    })
-
-# NPV --------------------------------------------------------
-npv = -total_cost
-for row in yearly_forecast:
-    cashflow = row["Saving"]
-    npv += cashflow / ((1 + discount_rate / 100) ** row["Year"])
-
-# ROI --------------------------------------------------------
-total_lifetime_profit = sum(row["Saving"] for row in yearly_forecast)
-roi = ((total_lifetime_profit - total_cost) / max(total_cost, 1)) * 100
-
-# SIMPLE IRR ESTIMATION --------------------------------------
-irr = (annual_profit / total_cost * 100) if total_cost > 0 else 0
-
-# MONTHLY GENERATION MODEL -----------------------------------
-monthly_factors = {
-    "Jan": 0.75, "Feb": 0.82, "Mar": 0.93, "Apr": 1.02, "May": 1.10, "Jun": 1.15,
-    "Jul": 1.08, "Aug": 1.04, "Sep": 0.97, "Oct": 0.90, "Nov": 0.80, "Dec": 0.72
-}
-monthly_generation = []
-for month, factor in monthly_factors.items():
-    monthly_generation.append({
-        "Month": month,
-        "Generation": round(annual_generation / 12 * factor, 2)
-    })
-
-# WEATHER RISK SCORE -----------------------------------------
-weather_risk = 0
-if cloud > 70: weather_risk += 25
-elif cloud > 50: weather_risk += 15
-if wind_speed > 80: weather_risk += 25
-elif wind_speed > 60: weather_risk += 15
-if temperature > 45: weather_risk += 15
-weather_risk = min(weather_risk, 100)
-
-# PERFORMANCE RATIO ------------------------------------------
-performance_ratio = round((daily_generation / max(system_size_kw * ghi, 1)) * 100, 2)
-
-# MAINTENANCE PLAN -------------------------------------------
-maintenance_schedule = [
-    {"Task": "Panel Cleaning", "Frequency": "Monthly"},
-    {"Task": "Cable Inspection", "Frequency": "Quarterly"},
-    {"Task": "Inverter Check", "Frequency": "6 Months"},
-    {"Task": "Structure Inspection", "Frequency": "Yearly"},
-    {"Task": "Performance Audit", "Frequency": "Yearly"}
-]
-
-# AI RECOMMENDATION ENGINE PRO -------------------------------
-ai_advice = []
-if performance_ratio < 75: ai_advice.append("Low performance ratio detected.")
-if weather_risk > 50: ai_advice.append("High weather risk environment.")
-if payback_years > 7: ai_advice.append("Improve self-consumption for faster payback.")
-if annual_co2_saved > 5: ai_advice.append("Excellent environmental impact.")
-if backup_hours < 6 and has_battery: ai_advice.append("Battery capacity may be insufficient.")
-if system_score > 90: ai_advice.append("System health is excellent.")
-if not ai_advice: ai_advice.append("Configuration appears balanced.")
-
-# ENERGY SECURITY SCORE --------------------------------------
-energy_security_score = 50
-if coverage_percent >= 100: energy_security_score += 25
-if has_battery: energy_security_score += 15
-if backup_hours > 12: energy_security_score += 10
-energy_security_score = min(energy_security_score, 100)
-
-# ESG SCORE --------------------------------------------------
-esg_score = round((system_score + energy_security_score + min(annual_co2_saved * 5, 100)) / 3, 1)
-if esg_score >= 85: esg_rating = "AAA"
-elif esg_score >= 70: esg_rating = "AA"
-elif esg_score >= 55: esg_rating = "A"
-else: esg_rating = "BBB"
-
-# LIFETIME METRICS -------------------------------------------
-lifetime_energy = sum(row["Energy"] for row in yearly_forecast)
-health_index = round((performance_ratio + system_score) / 2, 1)
-
-# SMART ALERTS -----------------------------------------------
-alerts = []
-if weather_risk > 50: alerts.append("⚠ Severe weather conditions detected.")
-if coverage_percent < 100: alerts.append("⚠ Solar generation below load demand.")
-if payback_years > 10: alerts.append("⚠ Long payback period.")
-if health_index < 70: alerts.append("⚠ System health requires attention.")
-
-# ============================================================
-# EXECUTIVE DASHBOARD (UI RENDERING)
-# ============================================================
-st.markdown("---")
-
-st.markdown(
-    f"""
-    <div class='info-card'>
-    <h2>Solar Power Estimator Pro Ultimate</h2>
-    <b>Country:</b> {country}<br>
-    <b>Currency:</b> {currency}<br>
-    <b>Grid:</b> {grid_voltage}V / {grid_frequency}Hz<br>
-    <b>ESG Rating:</b> {esg_rating}
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-# KPI Section
-k1, k2, k3, k4 = st.columns(4)
-k1.metric("Daily Generation", f"{daily_generation:.2f} kWh")
-k2.metric("Annual Generation", f"{annual_generation:,.0f} kWh")
-k3.metric("Annual Profit", f"{annual_profit:,.0f} {currency}")
-k4.metric("Payback", f"{payback_years:.1f} Years")
-
-# Tabs Setup
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-    "Summary", "Weather", "Technical", "Financial", "AI Insights", "Export"
-])
-
-# SUMMARY TAB ------------------------------------------------
-with tab1:
-    st.subheader("System Summary")
-    c1, c2 = st.columns(2)
+with tabs[2]:
+    c1, c2, c3 = st.columns(3)
     with c1:
-        st.info(f"System Size: {system_size_kw:.2f} kW")
-        st.info(f"Panel Quantity: {panel_qty}")
-        st.info(f"Panel Type: {panel_type}")
-        st.info(f"Inverter: {inverter_type}")
+        st.markdown(f"<div class='feature-box'><b>Panel:</b><br>{panel_type}<br>Eff: {p_eff}%<br>VOC: {voc}V<br>ISC: {isc}A</div>", unsafe_allow_html=True)
     with c2:
-        st.info(f"Battery: {battery_type}")
-        st.info(f"Coverage: {coverage_percent:.1f}%")
-        st.info(f"System Score: {system_score}")
-        st.info(f"Health Index: {health_index}")
+        st.markdown(f"<div class='feature-box'><b>Array:</b><br>Panels: {p_qty}<br>Strings: {strings}<br>Per String: {panels_per_string}<br>Area: {p_qty*2.2:.1f} m²</div>", unsafe_allow_html=True)
+    with c3:
+        st.markdown(f"<div class='feature-box'><b>Electrical:</b><br>DC Voltage: {voc_string:.0f}V<br>DC Current: {isc_string:.1f}A<br>MPPT: {mppt_voltage:.0f}V</div>", unsafe_allow_html=True)
 
-    energy_fig = go.Figure()
-    energy_fig.add_bar(name="Generation", x=["Daily"], y=[daily_generation])
-    energy_fig.add_bar(name="Load", x=["Daily"], y=[daily_load])
-    st.plotly_chart(energy_fig, use_container_width=True)
+with tabs[3]:
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Gross Cost", f"{gross_cost:,.0f} {c_curr}")
+    col2.metric("After Subsidy", f"{net_cost:,.0f} {c_curr}")
+    col3.metric("Payback", f"{payback:.1f} Years")
+    col4.metric("25Yr NPV", f"{npv:,.0f} {c_curr}")
+    st.progress(min(1.0, payback/12))
 
-# WEATHER TAB ------------------------------------------------
-with tab2:
-    st.subheader("Weather Overview")
-    w1, w2, w3 = st.columns(3)
-    w1.metric("Temperature", f"{temperature:.1f} °C")
-    w2.metric("Cloud", f"{cloud:.0f}%")
-    w3.metric("Wind", f"{wind_speed:.1f} km/h")
+with tabs[4]:
+    co2_annual = sum(gen_24) * 365 * 0.82 / 1000
+    st.success(f"CO2 Avoided: **{co2_annual:.2f} Tons/Year** | Trees: {int(co2_annual * 18)}")
+    st.metric("ESG Rating", esg_rating)
+    st.write(f"Sourcing: {sourcing} | Labor Risk: {labor_risk}")
 
-    if weekly_forecast:
-        st.subheader("7 Day Forecast")
-        st.dataframe(pd.DataFrame(weekly_forecast), use_container_width=True)
+with tabs[5]:
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.markdown(f"<div class='feature-box'><b>Structure:</b><br>{struct['type']}<br>Max Tilt: {struct['tilt_max']}°<br>Wind Zone: {wind_zone}</div>", unsafe_allow_html=True)
+    with c2:
+        st.markdown(f"<div class='feature-box'><b>Material:</b><br>{struct['material']}<br>Clamp: {struct['clamp']}</div>", unsafe_allow_html=True)
+    with c3:
+        st.markdown(f"<div class='feature-box'><b>Lightning:</b><br>Rod Height: {rod_height:.1f} m<br>Radius: {protection_radius} m<br>Cost: {lightning_cost:.0f} {c_curr}</div>", unsafe_allow_html=True)
+    if tilt > struct['tilt_max']:
+        st.error(f"⚠️ WARNING: Tilt {tilt}° exceeds max {struct['tilt_max']}° for {wind_zone} zone!")
+    if not wind_safe:
+        st.error(f"⚠️ HIGH WIND LOAD: {wind_force:.1f} kN detected!")
 
-# TECHNICAL TAB ----------------------------------------------
-with tab3:
-    technical_df = pd.DataFrame({
-        "Parameter": ["System Size", "Strings", "Panels/String", "String Voc", "String Isc", "MPPT Voltage", "Wind Force", "Structure"],
-        "Value": [f"{system_size_kw:.2f} kW", strings, panels_per_string, f"{voc_string:.1f} V", f"{isc_string:.1f} A", f"{mppt_voltage:.1f} V", f"{wind_force:.1f} N", structure_type]
+with tabs[6]:
+    st.markdown("<span class='info-label'>📤 EXPORT REPORT</span>", unsafe_allow_html=True)
+    df = pd.DataFrame({
+        "Hour": hours,
+        "Generation_kW": [round(x, 3) for x in gen_24],
+        "Load_kW": [round(x, 3) for x in load_24],
+        "Export_kW": [round(x, 3) for x in export_24],
+        "Import_kW": [round(x, 3) for x in import_24],
+        "Battery_SOC_kWh": [round(x, 3) for x in soc]
     })
-    st.dataframe(technical_df, use_container_width=True)
-
-    if has_battery:
-        st.success(f"Usable Battery: {usable_battery:.2f} kWh")
-        st.success(f"Backup Hours: {backup_hours:.1f}")
-
-# FINANCIAL TAB ----------------------------------------------
-with tab4:
-    st.subheader("Financial Analysis")
-    finance_df = pd.DataFrame({
-        "Metric": ["Total Cost", "Annual Profit", "ROI", "NPV", "IRR", "Payback"],
-        "Value": [round(total_cost, 2), round(annual_profit, 2), round(roi, 2), round(npv, 2), round(irr, 2), round(payback_years, 2)]
-    })
-    st.dataframe(finance_df, use_container_width=True)
-
-    pie = go.Figure()
-    pie.add_pie(labels=["Panels", "Battery", "Inverter"], values=[panel_cost_total, battery_cost_total, inverter_cost_total])
-    st.plotly_chart(pie, use_container_width=True)
-
-# AI TAB -----------------------------------------------------
-with tab5:
-    st.subheader("AI Recommendations")
-    for item in ai_advice:
-        st.success(item)
-
-    st.subheader("Smart Alerts")
-    if alerts:
-        for alert in alerts:
-            st.warning(alert)
-    else:
-        st.success("No alerts detected.")
-
-    st.subheader("Maintenance Schedule")
-    st.dataframe(pd.DataFrame(maintenance_schedule), use_container_width=True)
-
-# EXPORT TAB -------------------------------------------------
-with tab6:
-    st.subheader("Export Reports")
-    report_data = {
-        "Country": country, "System Size": system_size_kw, "Daily Generation": daily_generation,
-        "Annual Generation": annual_generation, "Annual Profit": annual_profit, "ROI": roi,
-        "NPV": npv, "IRR": irr, "Payback": payback_years, "ESG": esg_rating
-    }
-
-    pdf_file = generate_pdf_report(report_data)
-    if pdf_file:
-        st.download_button("Download PDF", pdf_file, file_name="solar_report.pdf", mime="application/pdf")
-
-    export_df = pd.DataFrame([report_data])
-    excel_file = generate_excel(export_df)
-    st.download_button(
-        "Download Excel", excel_file, file_name="solar_report.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-
-# CHARTS SECTION ---------------------------------------------
-st.subheader("Monthly Generation Forecast")
-st.plotly_chart(px.bar(pd.DataFrame(monthly_generation), x="Month", y="Generation"), use_container_width=True)
-
-st.subheader("25 Year Energy Forecast")
-st.plotly_chart(px.line(pd.DataFrame(yearly_forecast), x="Year", y="Energy"), use_container_width=True)
-
-# FOOTER -----------------------------------------------------
-st.markdown("---")
-st.markdown(
-    f"""
-    <div class='footer'>
-    Solar Power Estimator Pro Ultimate 2026<br>
-    Country: {country} | ESG Rating: {esg_rating}<br>
-    Lifetime Energy: {lifetime_energy:,.0f} kWh | CO₂ Saved: {annual_co2_saved:.2f} Tons / Year
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+    csv = df.to_csv(index=False).encode('utf-8')
+    st.download_button("📥 Download CSV", csv, file_name=f"SolarX_{country}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv", mime="text/csv")
+    st.dataframe(df, height=350, use_container_width=True)    
