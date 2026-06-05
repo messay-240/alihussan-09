@@ -1,23 +1,47 @@
 import streamlit as st
 st.set_page_config(page_title="Solar Power Estimator Pro", layout="wide", page_icon="⚡")
 
-# --- SAFE IMPORTS - PEHLE DEFINE KARO ---
+# --- SAFE IMPORTS - TRY EXCEPT KE SATH ---
 GEO_ENABLED = False
 PDF_ENABLED = False
+FOLIUM_ENABLED = False
 
+# Folium + Map
+try:
+    import folium
+    from streamlit_folium import st_folium
+    FOLIUM_ENABLED = True
+except:
+    folium = None
+    st_folium = None
+
+# Geopy - Location
 try:
     from geopy.geocoders import Nominatim
     GEO_ENABLED = True
 except:
-    pass
+    Nominatim = None
 
+# PDF Export
 try:
     from fpdf import FPDF
     PDF_ENABLED = True
 except ImportError:
     FPDF = None
 
-# --- TERMS & AGREEMENT POPUP ---
+# Baqi imports
+try:
+    import pandas as pd
+    import numpy as np
+    import math
+    import plotly.graph_objects as go
+    from datetime import datetime
+    import requests
+except Exception as e:
+    st.error(f"❌ Critical library missing: {e}")
+    st.stop()
+
+# --- TERMS & AGREEMENT POPUP - SAB SE PEHLE ---
 def show_terms():
     @st.dialog("📄 Terms & Privacy Agreement")
     def terms_dialog():
@@ -26,10 +50,14 @@ def show_terms():
 
         By using this Solar Power Estimator Pro app, you agree that:
 
-        1. **No Liability**: The calculations and estimates provided are for educational and planning purposes only. We are NOT responsible for any financial loss.
-        2. **Data Usage**: Your location/country selection may be used for weather API calls. We do NOT store your personal data.
+        1. **No Liability**: The calculations and estimates provided are for educational and planning purposes only. We are NOT responsible for any financial loss, installation errors, or damage caused by using this data.
+
+        2. **Data Usage**: Your location/country selection may be used for weather API calls. We do NOT store or share your personal data.
+
         3. **Accuracy**: Solar generation depends on real weather, panel quality, installation. Results may vary ±20%.
+
         4. **Third Party APIs**: Open-Meteo and Nominatim services are used. If they are offline, app will use database values.
+
         5. **Professional Advice**: Always consult a certified solar engineer before actual installation.
 
         By clicking "I Agree", you accept all terms above.
@@ -38,7 +66,8 @@ def show_terms():
         col1, col2 = st.columns(2)
         with col1:
             if st.button("❌ I Disagree", use_container_width=True, type="secondary"):
-                st.stop()
+                st.stop() # App band kar dega
+
         with col2:
             if st.button("✅ I Agree", use_container_width=True, type="primary"):
                 st.session_state['agreed'] = True
@@ -46,21 +75,12 @@ def show_terms():
 
     if 'agreed' not in st.session_state:
         terms_dialog()
-        st.stop()
+        st.stop() # Jab tak agree nahi karega, app niche nahi jayegi
 
 # TERMS CHECK CALL KARO - YE LINE SAB SE UPAR
 show_terms()
 
-# --- USKE BAAD BAQI IMPORTS ---
-import pandas as pd
-import numpy as np
-import math
-import plotly.graph_objects as go
-from datetime import datetime
-import folium
-from streamlit_folium import st_folium
-import requests
-
+# --- SAFE GEOCODER FUNCTION ---
 @st.cache_data(ttl=86400)
 def safe_geocode(country_name, c_lat_fallback):
     """Geocoder with fallback - crash nahi hoga"""
@@ -73,9 +93,10 @@ def safe_geocode(country_name, c_lat_fallback):
             return location.latitude, location.longitude, location.address.split(',')[0]
         else:
             return c_lat_fallback, 70.0, country_name
-    except:
+    except Exception:
         return c_lat_fallback, 70.0, country_name
 
+# --- 7 DIN WEATHER FUNCTION ---
 @st.cache_data(ttl=1800)
 def get_7day_weather(lat, lon):
     """7 Din ka weather Open-Meteo API se"""
@@ -93,28 +114,45 @@ def get_7day_weather(lat, lon):
                 'date': daily['time'][i],
                 'temp_max': daily['temperature_2m_max'][i],
                 'temp_min': daily['temperature_2m_min'][i],
-                'wind_max': daily['wind_speed_10m_max'][i] * 3.6,
+                'wind_max': daily['wind_speed_10m_max'][i] * 3.6, # m/s to km/h
                 'cloud': daily['cloud_cover_mean'][i]
             })
 
         return week_data, hourly
     except Exception as e:
         return None, None
-try:
-    from fpdf import FPDF
-    PDF_ENABLED = True
-except ImportError:
-    PDF_ENABLED = False
-    FPDF = None
+# FUNCTION KHATAM YAHAN
 
-# Safe imports - DEFAULT VALUE PEHLE SET KARO
-GEO_ENABLED = False
+# --- PDF FUNCTION ---
+def generate_pdf_report(data_dict):
+    """Generate PDF report - BYTES GUARANTEE"""
+    if not PDF_ENABLED:
+        return None
+    try:
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font('Arial', 'B', 18)
 
-try:
-    from geopy.geocoders import Nominatim
-    GEO_ENABLED = True
-except:
-    pass
+        def safe_text(txt):
+            return str(txt).encode('ascii', 'ignore').decode('ascii')
+
+        pdf.cell(0, 12, safe_text('SolarX Pro - Solar Analysis Report'), 0, 1, 'C')
+        pdf.set_font('Arial', '', 11)
+        pdf.cell(0, 8, safe_text(f'Generated: {datetime.now().strftime("%Y-%m-%d %H:%M")}'), 0, 1, 'C')
+        pdf.ln(8)
+
+        pdf.set_font('Arial', 'B', 14)
+        pdf.cell(0, 10, safe_text('SYSTEM CONFIGURATION'), 0, 1)
+        pdf.set_font('Arial', '', 11)
+        for key, val in data_dict.items():
+            pdf.cell(0, 7, safe_text(f'{key}: {val}'), 0, 1)
+
+        pdf_bytes = pdf.output(dest='S')
+        if isinstance(pdf_bytes, str):
+            pdf_bytes = pdf_bytes.encode('latin-1', 'replace')
+        return pdf_bytes
+    except:
+        return None
 
 st.set_page_config(page_title="Solar Power Estemaiter Pro", layout="wide", page_icon="⚡")
 
