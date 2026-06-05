@@ -1119,7 +1119,8 @@ with tab2:
 
         st.dataframe(
             forecast_df,
-            use_container_width=True
+           use_container_width=True → width='stretch'
+           use_container_width=False → width='content'
         )
 
         chart = go.Figure()
